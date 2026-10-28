@@ -40,6 +40,7 @@ class MainActivity : Activity() {
     private lateinit var carEqGuide: TextView
     private lateinit var volumeStageLabel: TextView
     private lateinit var volumeProfileResult: TextView
+    private lateinit var guideText: TextView
     @Volatile private var measuring = false
     private var micThread: Thread? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -75,7 +76,9 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         loadVolumeProfiles()
+        loadEqSettings()
         buildUi()
+        updateABLabels()
     }
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
@@ -176,7 +179,8 @@ class MainActivity : Activity() {
         root.addView(sectionHeader("Selectru 사운드 가이드", "선택은 자유롭게, 진실은 정확하게."))
         status = label(steps[0], 17f)
         root.addView(status)
-        root.addView(label(guidance[0]))
+        guideText = label(guidance[0])
+        root.addView(guideText)
         root.addView(sectionHeader("빠른 프리셋", "원하는 소리 성향을 한 번에 선택"))
         val presets = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         presets.addView(button("저음 강조") { setEq(4, 0, 1) }, LinearLayout.LayoutParams(0, dp(52), 1f))
@@ -207,14 +211,19 @@ class MainActivity : Activity() {
         root.addView(button("현재 설정을 A로 저장") {
             savedA = Triple(low, mid, high)
             showingA = true
+            saveABSettings()
+            updateABLabels()
             status.text = "A 설정 저장됨"
         })
         root.addView(button("현재 설정을 B로 저장") {
             savedB = Triple(low, mid, high)
             showingA = false
+            saveABSettings()
+            updateABLabels()
             status.text = "B 설정 저장됨"
         })
-        root.addView(button("A ↔ B 전환") { switchAB() })
+        root.addView(button("A ↔ B 전환") { switchAB() }.apply { tag = "ab_switch" })
+        root.addView(button("저장된 A/B 설정 지우기") { savedA = null; savedB = null; saveABSettings(); updateABLabels(); status.text = "A/B 저장 설정을 초기화했습니다." })
         root.addView(label("A와 B를 각각 저장한 뒤 전환하며 비교하세요. 이 비교는 앱의 테스트 톤에 적용됩니다.", 14f))
 
         root.addView(sectionHeader("볼륨별 측정", "단계별 기록을 저장해 차이를 확인"))
@@ -235,7 +244,7 @@ class MainActivity : Activity() {
             })
         }
         root.addView(volumeStageSlider)
-        root.addView(button("현재 볼륨 단계 측정 시작") { startNoiseMeasurement() })
+        root.addView(button("현재 볼륨 단계 측정 시작 / 취소") { if (measuring) { measuring = false; micResult.text = "측정을 취소했습니다." } else startNoiseMeasurement() })
         volumeProfileResult = label("각 단계에서 같은 음악 구간을 측정하면 볼륨별 차이를 비교할 수 있습니다.", 14f)
         root.addView(volumeProfileResult)
         root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); saveVolumeProfiles(); showVolumeProfile() })
@@ -256,7 +265,7 @@ class MainActivity : Activity() {
         })
         micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요. 측정 시간은 20초입니다.")
         root.addView(micResult)
-        root.addView(button("선택한 볼륨 단계에서 20초 분석") { startNoiseMeasurement() })
+        root.addView(button("선택한 볼륨 단계에서 20초 분석 / 취소") { if (measuring) { measuring = false; micResult.text = "측정을 취소했습니다." } else startNoiseMeasurement() })
         root.addView(label("핑크 노이즈 입력을 8개 대역으로 분석하고 로그 주파수 폭을 보정한 상대 레벨과 보정 시작값을 표시합니다. 현재 진단은 규칙 기반 프로토타입이며 학습된 AI 모델이나 보정 마이크 측정은 아닙니다.", 14f))
 
         root.addView(button("측정용 핑크 노이즈 재생 / 정지") { toggleTone() })
@@ -314,7 +323,11 @@ class MainActivity : Activity() {
 
     private fun setEq(l: Int, m: Int, h: Int) {
         low = l.coerceIn(-12, 12); mid = m.coerceIn(-12, 12); high = h.coerceIn(-12, 12)
-        lowValue.text = dbLabel(low); midValue.text = dbLabel(mid); highValue.text = dbLabel(high)
+        if (::lowValue.isInitialized) lowValue.text = dbLabel(low)
+        if (::midValue.isInitialized) midValue.text = dbLabel(mid)
+        if (::highValue.isInitialized) highValue.text = dbLabel(high)
+        getSharedPreferences("selectru_settings", MODE_PRIVATE).edit()
+            .putInt("bass", low).putInt("mid", mid).putInt("treble", high).apply()
         val sliders = mutableListOf<SeekBar>()
         collectSliders(root, sliders)
         if (sliders.size >= 3) {
@@ -352,17 +365,52 @@ class MainActivity : Activity() {
         val target = if (showingA) b else a
         setEq(target.first, target.second, target.third)
         showingA = !showingA
+        saveABSettings()
         status.text = if (showingA) "A 설정 적용 중" else "B 설정 적용 중"
     }
 
     private fun updateStep() {
         status.text = steps[step]
-        val texts = root.findViewsWithText(ArrayList<View>(), guidance[0], View.FIND_VIEWS_WITH_TEXT)
-        val all = ArrayList<View>()
-        root.findViewsWithText(all, guidance[0], View.FIND_VIEWS_WITH_TEXT)
-        val guidanceView = root.getChildAt(4) as? TextView
-        guidanceView?.text = guidance[step]
+        if (::guideText.isInitialized) guideText.text = guidance[step]
         if (step == 4) status.append(" · 완료")
+    }
+
+    private fun loadEqSettings() {
+        val prefs = getSharedPreferences("selectru_settings", MODE_PRIVATE)
+        low = prefs.getInt("bass", 0).coerceIn(-12, 12)
+        mid = prefs.getInt("mid", 0).coerceIn(-12, 12)
+        high = prefs.getInt("treble", 0).coerceIn(-12, 12)
+        val a = listOf("aBass", "aMid", "aTreble").map { prefs.getInt(it, Int.MIN_VALUE) }
+        val b = listOf("bBass", "bMid", "bTreble").map { prefs.getInt(it, Int.MIN_VALUE) }
+        if (a.none { it == Int.MIN_VALUE }) savedA = Triple(a[0], a[1], a[2])
+        if (b.none { it == Int.MIN_VALUE }) savedB = Triple(b[0], b[1], b[2])
+        showingA = prefs.getBoolean("showingA", false)
+    }
+
+    private fun saveABSettings() {
+        val editor = getSharedPreferences("selectru_settings", MODE_PRIVATE).edit().putBoolean("showingA", showingA)
+        if (savedA == null) editor.remove("aBass").remove("aMid").remove("aTreble")
+        else savedA!!.let { editor.putInt("aBass", it.first).putInt("aMid", it.second).putInt("aTreble", it.third) }
+        if (savedB == null) editor.remove("bBass").remove("bMid").remove("bTreble")
+        else savedB!!.let { editor.putInt("bBass", it.first).putInt("bMid", it.second).putInt("bTreble", it.third) }
+        editor.apply()
+    }
+
+    private fun updateABLabels() {
+        if (!::root.isInitialized) return
+        val a = savedA?.let { "A: " + it.first + "/" + it.second + "/" + it.third } ?: "A: 미저장"
+        val b = savedB?.let { "B: " + it.first + "/" + it.second + "/" + it.third } ?: "B: 미저장"
+        val existing = root.findViewWithTag<View>("ab_summary")
+        if (existing != null) root.removeView(existing)
+        val info = TextView(this).apply {
+            tag = "ab_summary"
+            text = "$a     $b"
+            textSize = 12f
+            setTextColor(Color.rgb(157, 190, 218))
+            setPadding(dp(2), dp(4), dp(2), dp(8))
+        }
+        val buttonIndex = root.indexOfChild(root.findViewWithTag<View>("ab_switch"))
+        root.addView(info, if (buttonIndex >= 0) buttonIndex + 1 else root.childCount)
     }
 
     private fun startNoiseMeasurement() {
