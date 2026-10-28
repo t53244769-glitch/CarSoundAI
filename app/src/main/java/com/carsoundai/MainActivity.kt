@@ -246,6 +246,7 @@ class MainActivity : Activity() {
                 val buffer = ShortArray(1024)
                 var squares = 0.0
                 var count = 0L
+                var clippedSamples = 0L
                 var bassEnergy = 0.0
                 var midEnergy = 0.0
                 var trebleEnergy = 0.0
@@ -254,7 +255,7 @@ class MainActivity : Activity() {
                 while (measuring && System.currentTimeMillis() < endAt) {
                     val n = recorder.read(buffer, 0, buffer.size)
                     if (n > 0) {
-                        for (i in 0 until n) { val v = buffer[i].toDouble(); squares += v * v }
+                        for (i in 0 until n) { val sample = buffer[i].toInt(); val v = sample.toDouble(); squares += v * v; if (kotlin.math.abs(sample) >= 32700) clippedSamples++ }
                         count += n
                         if (n == buffer.size) {
                             val bands = analyzeSpectrum(buffer, n, rate)
@@ -270,9 +271,15 @@ class MainActivity : Activity() {
                 val trebleDb = 10.0 * log10(maxOf(1e-12, trebleEnergy / maxOf(1, spectrumFrames)))
                 val bassRec = ((midDb - bassDb) * 0.25).toInt().coerceIn(-4, 4)
                 val trebleRec = ((midDb - trebleDb) * 0.25).toInt().coerceIn(-4, 4)
+                val clipRatio = if (count > 0) clippedSamples.toDouble() / count else 0.0
+                val qualityWarning = when {
+                    rms < 80.0 -> "입력 신호가 너무 작습니다. 음악 음량을 조금 높이고 다시 측정하세요."
+                    clipRatio > 0.005 -> "입력 왜곡 가능성이 있습니다. 음량을 낮추고 다시 측정하세요."
+                    else -> "측정 레벨은 확인됐습니다. 곡 구성과 마이크 위치에 영향을 받는 참고값입니다."
+                }
                 handler.post {
-                    micResult.text = String.format(Locale.getDefault(), "분석 완료 · 입력 %.1f dBFS\\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\\n초기 EQ 추천: 저음 %+d, 중음 0, 고음 %+d\\n곡 구성과 마이크 위치의 영향을 받는 참고값입니다.", dbfs, bassDb, midDb, trebleDb, bassRec, trebleRec)
-                    carEqGuide.text = "음악 분석 기반 EQ 시작값\\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\\n중음 / Mid: 기준에서 시작\\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\\n차량 EQ에 적용 후 다시 측정해 비교하세요."
+                    micResult.text = String.format(Locale.getDefault(), "분석 완료 · 입력 %.1f dBFS\\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\\n%s", dbfs, bassDb, midDb, trebleDb, bassRec, trebleRec, qualityWarning)
+                    carEqGuide.text = "스펙트럼 분석 기반 EQ 시작값\\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\\n중음 / Mid: 기준에서 시작\\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\\n차량 EQ에 적용 후 다시 측정해 비교하세요."
                 }
             } catch (e: Exception) {
                 handler.post { micResult.text = "마이크 측정 실패: " + (e.message ?: "권한 또는 기기 문제") }
