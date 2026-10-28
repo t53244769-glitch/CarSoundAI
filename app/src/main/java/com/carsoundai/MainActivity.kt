@@ -365,7 +365,12 @@ class MainActivity : Activity() {
         root.addView(profileStyle)
         val profileNotesInput = android.widget.EditText(this).apply { hint = "설명·측정 조건 (선택)"; minLines = 2; setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
         root.addView(profileNotesInput)
-        root.addView(button("MYBOX에 수집 데이터·차량 프로필 저장") {\n            exportProfileFile(vehicleNameInput.text.toString().ifBlank { "현대 아이오닉 5" }, audioSystemInput.text.toString().ifBlank { "순정 오디오" },\n                profileNameInput.text.toString().ifBlank { "IONIQ5 기준 측정 프로필" }, profileStyle.selectedItem?.toString() ?: "균형형",\n                profileNotesInput.text.toString(), speakerSetupInput.text.toString(), speakerBrandInput.text.toString(),\n                speakerModelInput.text.toString(), speakerLocationInput.text.toString(), dspInput.text.toString())\n        })\n        root.addView(button("차량 정보가 포함된 튜닝 프로필 내보내기") {
+        root.addView(button("MYBOX에 수집 데이터·차량 프로필 저장") {
+            exportProfileFile(vehicleNameInput.text.toString().ifBlank { "현대 아이오닉 5" }, audioSystemInput.text.toString().ifBlank { "순정 오디오" },
+                profileNameInput.text.toString().ifBlank { "IONIQ5 기준 측정 프로필" }, profileStyle.selectedItem?.toString() ?: "균형형",
+                profileNotesInput.text.toString(), speakerSetupInput.text.toString(), speakerBrandInput.text.toString(),
+                speakerModelInput.text.toString(), speakerLocationInput.text.toString(), dspInput.text.toString())
+        })
             exportProfileFile(vehicleNameInput.text.toString(), audioSystemInput.text.toString(),
                 profileNameInput.text.toString(), profileStyle.selectedItem?.toString() ?: "균형형",
                 profileNotesInput.text.toString(), speakerSetupInput.text.toString(),
@@ -650,7 +655,8 @@ class MainActivity : Activity() {
         measuring = true
         val measurementStage = selectedVolumeStage
         micResult.text = "${measurementDurationSeconds}초 측정 중… 핑크 노이즈를 차량 스피커로 재생하고 측정이 끝날 때까지 기다려 주세요."
-        val sessionDurationForUi = measurementDurationSeconds\n        val measurementStartedAt = System.currentTimeMillis()
+        val sessionDurationForUi = measurementDurationSeconds
+        val measurementStartedAt = System.currentTimeMillis()
         val ticker = object : Runnable {
             override fun run() {
                 if (!measuring || !::micResult.isInitialized) return
