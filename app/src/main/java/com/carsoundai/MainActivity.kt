@@ -89,7 +89,20 @@ class MainActivity : Activity() {
     }
 
     private fun button(text: String, action: () -> Unit): Button =
-        Button(this).apply { this.text = text; setOnClickListener { action() } }
+        Button(this).apply {
+            this.text = text
+            isAllCaps = false
+            textSize = 14f
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            setTextColor(Color.WHITE)
+            setPadding(dp(12), dp(8), dp(12), dp(8))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(Color.rgb(0, 119, 255), Color.rgb(0, 190, 238))
+            ).apply { cornerRadius = dp(16).toFloat() }
+            stateListAnimator = null
+            setOnClickListener { action() }
+        }
 
     private fun buildUi() {
         val scroll = ScrollView(this)
@@ -238,7 +251,7 @@ class MainActivity : Activity() {
         root.addView(button("현재 설정 초기화") { setEq(0, 0, 0) })
         root.addView(sectionHeader("사용 안내", "정확도와 안전을 위한 참고 사항"))
         root.addView(label("핑크 노이즈는 측정 자극음으로 사용합니다. 이 앱은 자체 테스트 소리와 이 앱에 연결된 이퀄라이저를 조절합니다. Android의 제한으로 다른 음악 앱이나 차량 블루투스에서 재생 중인 모든 음악을 직접 변경하지는 못합니다. 차량 오디오의 EQ는 차량/오디오 시스템에서 조절하세요.", 14f))
-        root.addView(label("안전을 위해 주행 중에는 조작하지 마세요.", 14f, Color.rgb(170, 45, 35)))
+        root.addView(label("안전을 위해 주행 중에는 조작하지 마세요.", 14f, Color.rgb(255, 130, 130)))
     }
 
     private fun sectionHeader(title: String, subtitle: String): LinearLayout {
