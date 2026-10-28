@@ -371,12 +371,6 @@ class MainActivity : Activity() {
                 profileNotesInput.text.toString(), speakerSetupInput.text.toString(), speakerBrandInput.text.toString(),
                 speakerModelInput.text.toString(), speakerLocationInput.text.toString(), dspInput.text.toString())
         })
-            exportProfileFile(vehicleNameInput.text.toString(), audioSystemInput.text.toString(),
-                profileNameInput.text.toString(), profileStyle.selectedItem?.toString() ?: "균형형",
-                profileNotesInput.text.toString(), speakerSetupInput.text.toString(),
-                speakerBrandInput.text.toString(), speakerModelInput.text.toString(),
-                speakerLocationInput.text.toString(), dspInput.text.toString())
-        })
         root.addView(label("MYBOX 저장을 누른 뒤 파일 저장 위치 선택 화면에서 MYBOX를 선택하고 수집데이터/IONIQ5 폴더를 지정하세요. 폴더가 없으면 MYBOX에서 먼저 만들어야 할 수 있습니다. 이 방식은 Android 파일 선택기를 통한 저장이며 자동 백그라운드 동기화나 MYBOX 계정 직접 연동은 아닙니다.\\n공유 파일에는 차량명·오디오 종류·스피커 구성·제조사/모델·장착 위치·DSP 정보·튜닝 성향·설명과 EQ/A-B/측정 기록이 담깁니다. 이 앱 버전은 파일 내보내기·가져오기까지 제공하며 온라인 공개 카탈로그·검색 서버는 아직 없습니다. 차량별 세팅은 트림·스피커·좌석·측정 위치에 따라 달라질 수 있어 ‘공식 최적값’이 아닌 사용자 공유값으로 표시해야 합니다.", 13f))
     }
 
