@@ -24,6 +24,10 @@ class MainActivity : Activity() {
     private lateinit var lowValue: TextView
     private lateinit var midValue: TextView
     private lateinit var highValue: TextView
+    private lateinit var micResult: TextView
+    @Volatile private var measuring = false
+    private var micThread: Thread? = null
+    private val handler = Handler(Looper.getMainLooper())
     private var low = 0
     private var mid = 0
     private var high = 0
@@ -118,6 +122,12 @@ class MainActivity : Activity() {
         root.addView(button("A ↔ B 전환") { switchAB() })
         root.addView(label("A와 B를 각각 저장한 뒤 전환하며 비교하세요. 이 비교는 앱의 테스트 톤에 적용됩니다.", 14f))
 
+        root.addView(label("실내 소음 간이 측정", 18f, Color.rgb(20, 43, 75)))
+        micResult = label("측정 전 · 차량을 안전하게 주차한 뒤 측정하세요.")
+        root.addView(micResult)
+        root.addView(button("주변 소음 5초 측정") { startNoiseMeasurement() })
+        root.addView(label("마이크 측정은 주변 소리 크기만 상대적으로 보여줍니다. 보정된 dB SPL이나 주파수 응답 측정은 아닙니다.", 14f))
+
         root.addView(button("테스트 소리 재생 / 정지") { toggleTone() })
         root.addView(button("이전 단계") { step = (step - 1).coerceAtLeast(0); updateStep() })
         root.addView(button("다음 단계") { step = (step + 1).coerceAtMost(4); updateStep() })
@@ -185,6 +195,62 @@ class MainActivity : Activity() {
         if (step == 4) status.append(" · 완료")
     }
 
+    private fun startNoiseMeasurement() {
+        if (measuring) return
+        if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.RECORD_AUDIO), 41)
+            return
+        }
+        val rate = 16000
+        val minBuffer = AudioRecord.getMinBufferSize(rate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT)
+        if (minBuffer <= 0) {
+            micResult.text = "이 기기에서 마이크 측정을 시작할 수 없습니다."
+            return
+        }
+        measuring = true
+        micResult.text = "측정 중… 주변에서 말하지 말고 5초 기다려 주세요."
+        micThread = Thread {
+            var recorder: AudioRecord? = null
+            try {
+                recorder = AudioRecord(MediaRecorder.AudioSource.MIC, rate, AudioFormat.CHANNEL_IN_MONO,
+                    AudioFormat.ENCODING_PCM_16BIT, maxOf(minBuffer, 4096))
+                if (recorder.state != AudioRecord.STATE_INITIALIZED) throw IllegalStateException("마이크 초기화 실패")
+                recorder.startRecording()
+                val buffer = ShortArray(1024)
+                var squares = 0.0
+                var count = 0L
+                val endAt = System.currentTimeMillis() + 5000
+                while (measuring && System.currentTimeMillis() < endAt) {
+                    val n = recorder.read(buffer, 0, buffer.size)
+                    if (n > 0) {
+                        for (i in 0 until n) { val v = buffer[i].toDouble(); squares += v * v }
+                        count += n
+                    }
+                }
+                val rms = if (count > 0) sqrt(squares / count) else 0.0
+                val dbfs = if (rms > 0) 20.0 * log10(rms / 32768.0) else -100.0
+                handler.post {
+                    micResult.text = "측정 완료 · 입력 레벨 " + String.format(Locale.getDefault(), "%.1f dBFS", dbfs) +
+                        "\n상대 비교용 수치이며 보정된 소음계 값은 아닙니다."
+                }
+            } catch (e: Exception) {
+                handler.post { micResult.text = "마이크 측정 실패: " + (e.message ?: "권한 또는 기기 문제") }
+            } finally {
+                try { recorder?.stop() } catch (_: Exception) {}
+                try { recorder?.release() } catch (_: Exception) {}
+                measuring = false
+            }
+        }.also { it.start() }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == 41) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) startNoiseMeasurement()
+            else micResult.text = "마이크 권한이 없어 측정하지 않았습니다."
+        }
+    }
+
     private fun toggleTone() {
         if (playing) { stopTone(); return }
         try {
@@ -247,6 +313,7 @@ class MainActivity : Activity() {
     }
 
     override fun onDestroy() {
+        measuring = false
         stopTone()
         super.onDestroy()
     }
