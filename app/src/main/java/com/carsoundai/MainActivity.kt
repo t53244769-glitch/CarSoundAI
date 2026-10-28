@@ -34,6 +34,7 @@ class MainActivity : Activity() {
     private lateinit var midValue: TextView
     private lateinit var highValue: TextView
     private lateinit var micResult: TextView
+    private lateinit var carEqGuide: TextView
     @Volatile private var measuring = false
     private var micThread: Thread? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -107,15 +108,21 @@ class MainActivity : Activity() {
         root.addView(label("저음 (Bass)", 17f))
         lowValue = label("0 dB")
         root.addView(lowValue)
-        root.addView(makeSlider { v -> low = v; lowValue.text = dbLabel(v); applyEq() })
+        root.addView(makeSlider { v -> low = v; lowValue.text = dbLabel(v); applyEq(); updateCarEqGuide() })
         root.addView(label("중음 · 보컬 (Mid)", 17f))
         midValue = label("0 dB")
         root.addView(midValue)
-        root.addView(makeSlider { v -> mid = v; midValue.text = dbLabel(v); applyEq() })
+        root.addView(makeSlider { v -> mid = v; midValue.text = dbLabel(v); applyEq(); updateCarEqGuide() })
         root.addView(label("고음 · 선명도 (Treble)", 17f))
         highValue = label("0 dB")
         root.addView(highValue)
-        root.addView(makeSlider { v -> high = v; highValue.text = dbLabel(v); applyEq() })
+        root.addView(makeSlider { v -> high = v; highValue.text = dbLabel(v); applyEq(); updateCarEqGuide() })
+
+        root.addView(label("차량 EQ에 직접 적용", 18f, Color.rgb(20, 43, 75)))
+        carEqGuide = label("")
+        root.addView(carEqGuide)
+        root.addView(label("위 추천은 조정 방향과 강도 참고용입니다. 차량 EQ의 밴드 수와 범위가 다르므로 숫자를 그대로 복사하지 말고, 차량 EQ에서 가장 가까운 대역을 비슷한 방향으로 조금씩 조절하세요. 먼저 차량 EQ를 0으로 맞춘 뒤 적용하고, 주행 중에는 조작하지 마세요.", 14f))
+        updateCarEqGuide()
 
         root.addView(label("A/B 설정 비교", 18f, Color.rgb(20, 43, 75)))
         root.addView(button("현재 설정을 A로 저장") {
@@ -173,6 +180,17 @@ class MainActivity : Activity() {
             sliders[2].progress = high + 12
         }
         applyEq()
+        updateCarEqGuide()
+    }
+
+    private fun updateCarEqGuide() {
+        if (!::carEqGuide.isInitialized) return
+        fun direction(value: Int): String = when {
+            value > 0 -> "+$value 단계 올리기"
+            value < 0 -> "$value 단계 낮추기"
+            else -> "기준(0)"
+        }
+        carEqGuide.text = "저음 / Bass: ${direction(low)}\n중음·보컬 / Mid: ${direction(mid)}\n고음·선명도 / Treble: ${direction(high)}"
     }
 
     private fun collectSliders(view: View, output: MutableList<SeekBar>) {
