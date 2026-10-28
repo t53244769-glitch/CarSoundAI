@@ -48,6 +48,9 @@ class MainActivity : Activity() {
     private lateinit var volumeProfileResult: TextView
     private lateinit var guideText: TextView
     @Volatile private var measuring = false
+    @Volatile private var measurementPaused = false
+    @Volatile private var activeMeasurementMs = 0L
+    @Volatile private var measurementTargetMs = 0L
     private var micThread: Thread? = null
     private var measurementUiTicker: Runnable? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -261,12 +264,12 @@ class MainActivity : Activity() {
         root.addView(label("분석 시간", 15f))
         val durationPicker = android.widget.Spinner(this).apply {
             adapter = android.widget.ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
-                listOf("20초 빠른 측정", "5분 수집 테스트", "20분 장시간 수집", "60분 장시간 수집"))
+                listOf("20초 빠른 측정", "3분 기준 측정", "5분 정밀 측정", "20분 장시간 수집"))
             setSelection(0)
             onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    measurementDurationSeconds = listOf(20, 300, 1200, 3600).getOrElse(position) { 20 }
+                    measurementDurationSeconds = listOf(20, 180, 300, 1200).getOrElse(position) { 20 }
                 }
             }
         }
@@ -289,7 +292,8 @@ class MainActivity : Activity() {
             })
         }
         root.addView(volumeStageSlider)
-        root.addView(button("현재 볼륨 단계 측정 시작 / 취소") { if (measuring) { measuring = false; micResult.text = "측정을 취소했습니다." } else startNoiseMeasurement() })
+        root.addView(button("측정 시작 / 종료하고 현재값 저장") { if (measuring) { measuring = false; micResult.text = "측정을 종료합니다. 지금까지의 유효 구간을 분석해 저장합니다." } else startNoiseMeasurement() })
+        root.addView(button("측정 일시정지 / 이어하기") { if (measuring) { measurementPaused = !measurementPaused; micResult.text = if (measurementPaused) "일시정지됨 · 광고가 끝나면 이어하기를 누르세요." else "측정 재개 · 유효 측정 시간을 이어서 계산합니다." } else micResult.text = "측정 중일 때 사용할 수 있습니다." })
         volumeProfileResult = label("각 단계에서 같은 음악 구간을 측정하면 볼륨별 차이를 비교할 수 있습니다.", 14f)
         root.addView(volumeProfileResult)
         root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); saveVolumeProfiles(); showVolumeProfile() })
@@ -310,7 +314,7 @@ class MainActivity : Activity() {
         })
         micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요. 측정 시간은 20초입니다.")
         root.addView(micResult)
-        root.addView(button("선택한 볼륨 단계에서 선택 시간 분석 / 취소") { if (measuring) { measuring = false; micResult.text = "측정을 취소했습니다." } else startNoiseMeasurement() })
+        root.addView(button("측정 일시정지 / 이어하기") { if (measuring) { measurementPaused = !measurementPaused; micResult.text = if (measurementPaused) "일시정지됨 · 광고가 끝나면 이어하기를 누르세요." else "측정 재개 · 유효 측정 시간을 이어서 계산합니다." } else startNoiseMeasurement() })
         root.addView(label("핑크 노이즈 입력을 8개 대역으로 분석하고 로그 주파수 폭을 보정한 상대 레벨과 보정 시작값을 표시합니다. 현재 진단은 규칙 기반 프로토타입이며 학습된 AI 모델이나 보정 마이크 측정은 아닙니다.", 14f))
 
         root.addView(button("측정용 핑크 노이즈 재생 / 정지") { toggleTone() })
@@ -647,16 +651,21 @@ class MainActivity : Activity() {
             return
         }
         measuring = true
+        measurementPaused = false
+        activeMeasurementMs = 0L
+        measurementTargetMs = measurementDurationSeconds * 1000L
         val measurementStage = selectedVolumeStage
-        micResult.text = "${measurementDurationSeconds}초 측정 중… 핑크 노이즈를 차량 스피커로 재생하고 측정이 끝날 때까지 기다려 주세요."
-        val sessionDurationForUi = measurementDurationSeconds
-        val measurementStartedAt = System.currentTimeMillis()
+        micResult.text = "측정 준비 중… 광고가 나오면 일시정지 버튼을 누르세요."
         val ticker = object : Runnable {
             override fun run() {
                 if (!measuring || !::micResult.isInitialized) return
-                val remaining = (sessionDurationForUi - ((System.currentTimeMillis() - measurementStartedAt) / 1000).toInt()).coerceAtLeast(0)
-                micResult.text = "측정 중 · 남은 시간 ${remaining}초\\n차량은 안전하게 주차하고 측정음을 일정하게 유지하세요."
-                if (remaining > 0) handler.postDelayed(this, 500)
+                val remaining = ((measurementTargetMs - activeMeasurementMs).coerceAtLeast(0L) / 1000L)
+                if (measurementPaused) {
+                    micResult.text = "일시정지 중 · 남은 유효 측정 시간 ${remaining}초\n광고가 끝나면 ‘측정 일시정지 / 이어하기’를 누르세요."
+                } else {
+                    micResult.text = "측정 중 · 남은 유효 측정 시간 ${remaining}초\n광고나 외부 소음이 들리면 일시정지하세요."
+                }
+                handler.postDelayed(this, 500)
             }
         }
         measurementUiTicker = ticker
@@ -677,16 +686,30 @@ class MainActivity : Activity() {
                 var trebleEnergy = 0.0
                 val bandEnergy = DoubleArray(8)
                 var spectrumFrames = 0
-                val sessionDuration = measurementDurationSeconds
-                val endAt = System.currentTimeMillis() + sessionDuration * 1000L
-                while (measuring && System.currentTimeMillis() < endAt) {
+                var previousTick = System.nanoTime()
+                while (measuring && activeMeasurementMs < measurementTargetMs) {
+                    val now = System.nanoTime()
+                    val deltaMs = ((now - previousTick) / 1_000_000L).coerceAtLeast(0L)
+                    previousTick = now
+                    if (measurementPaused) {
+                        Thread.sleep(80)
+                        continue
+                    }
+                    activeMeasurementMs += deltaMs
                     val n = recorder.read(buffer, 0, buffer.size)
                     if (n > 0) {
-                        for (i in 0 until n) { val sample = buffer[i].toInt(); val v = sample.toDouble(); squares += v * v; if (kotlin.math.abs(sample) >= 32700) clippedSamples++ }
+                        for (i in 0 until n) {
+                            val sample = buffer[i].toInt()
+                            val v = sample.toDouble()
+                            squares += v * v
+                            if (kotlin.math.abs(sample) >= 32700) clippedSamples++
+                        }
                         count += n
                         if (n == buffer.size) {
                             val bands = analyzeSpectrum(buffer, n, rate)
-                            bassEnergy += bands[0]; midEnergy += bands[1]; trebleEnergy += bands[2]
+                            bassEnergy += bands[0]
+                            midEnergy += bands[1]
+                            trebleEnergy += bands[2]
                             for (band in 0 until 8) bandEnergy[band] += bands[band + 3]
                             spectrumFrames++
                         }
@@ -704,26 +727,28 @@ class MainActivity : Activity() {
                 val maxBand = bandDb.indices.maxByOrNull { bandDb[it] } ?: 0
                 val minBand = bandDb.indices.minByOrNull { bandDb[it] } ?: 0
                 val bandSpread = bandDb[maxBand] - bandDb[minBand]
-                val ruleDiagnosis = if (bandSpread < 3.0) {
-                    "8개 대역 편차가 비교적 작습니다."
-                } else {
+                val ruleDiagnosis = if (bandSpread < 3.0) "8개 대역 편차가 비교적 작습니다." else
                     "상대적으로 높은 대역: ${bandNames[maxBand]}, 낮은 대역: ${bandNames[minBand]} (편차 ${String.format(Locale.getDefault(), "%.1f", bandSpread)} dB). 큰 EQ 변화보다 작은 조정 후 재측정을 권장합니다."
-                }
                 val profile = VolumeProfile(bassDb, midDb, trebleDb, bandDb, bassRec, trebleRec, dbfs)
                 val clipRatio = if (count > 0) clippedSamples.toDouble() / count else 0.0
                 val qualityWarning = when {
+                    count == 0L || spectrumFrames == 0 -> "유효한 측정 구간이 없습니다. 측정을 다시 진행하세요."
                     rms < 80.0 -> "입력 신호가 너무 작습니다. 측정 소리와 입력 음량을 확인한 뒤 다시 측정하세요."
                     clipRatio > 0.005 -> "입력 왜곡 가능성이 있습니다. 음량을 낮추고 다시 측정하세요."
-                    else -> "측정 레벨은 확인됐습니다. 스피커 경로, 실내 반사음, 마이크 위치에 영향을 받는 참고값입니다."
+                    else -> "참고값입니다. 스피커 경로, 실내 반사음, 마이크 위치에 영향을 받습니다."
                 }
                 handler.post {
-                    volumeProfiles[measurementStage] = profile
-                    saveVolumeProfiles()
-                    volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10" + if (volumeProfiles.containsKey(selectedVolumeStage)) " · 측정 저장됨" else " · 미측정"
-                    showVolumeProfile()
-                    micResult.text = String.format(Locale.getDefault(), "볼륨 단계 %d/10 분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n8대역(20–60 / 60–125 / 125–250 / 250–500 / 500–1k / 1–2k / 2–4k / 4–8k Hz):\n%s\n규칙 기반 진단: %s\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", measurementStage, dbfs, bassDb, midDb, trebleDb, bandDb.mapIndexed { i, v -> String.format(Locale.getDefault(), "%s %.1f dB", listOf("20–60", "60–125", "125–250", "250–500", "500–1k", "1–2k", "2–4k", "4–8k")[i], v) }.joinToString("\n"), ruleDiagnosis, bassRec, trebleRec, qualityWarning)
-                    renderSpectrum(bandDb)
-                    carEqGuide.text = "스펙트럼 분석 기반 EQ 시작값\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\n중음 / Mid: 기준에서 시작\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\n차량 EQ에 적용 후 다시 측정해 비교하세요."
+                    if (count > 0L && spectrumFrames > 0) {
+                        volumeProfiles[measurementStage] = profile
+                        saveVolumeProfiles()
+                        volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10 · 측정 저장됨"
+                        showVolumeProfile()
+                        micResult.text = String.format(Locale.getDefault(), "볼륨 단계 %d/10 분석 완료 · 유효 시간 %.1f초 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n8대역:\n%s\n진단: %s\n초기 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", measurementStage, activeMeasurementMs / 1000.0, dbfs, bassDb, midDb, trebleDb, bandDb.mapIndexed { i, v -> String.format(Locale.getDefault(), "%s %.1f dB", listOf("20–60", "60–125", "125–250", "250–500", "500–1k", "1–2k", "2–4k", "4–8k")[i], v) }.joinToString("\n"), ruleDiagnosis, bassRec, trebleRec, qualityWarning)
+                        renderSpectrum(bandDb)
+                        carEqGuide.text = "스펙트럼 분석 기반 EQ 시작값\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\n중음 / Mid: 기준에서 시작\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\n차량 EQ에 적용 후 다시 측정해 비교하세요."
+                    } else {
+                        micResult.text = "유효한 데이터가 없어 저장하지 않았습니다. 테스트음 경로와 마이크 권한을 확인하세요."
+                    }
                 }
             } catch (e: Exception) {
                 handler.post { micResult.text = "마이크 측정 실패: " + (e.message ?: "권한 또는 기기 문제") }
@@ -734,6 +759,7 @@ class MainActivity : Activity() {
                     measurementUiTicker?.let { handler.removeCallbacks(it) }
                     measurementUiTicker = null
                     measuring = false
+                    measurementPaused = false
                 }
             }
         }.also { it.start() }
