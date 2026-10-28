@@ -19,16 +19,16 @@ CarSoundAI aims to bring a measurement-driven car-audio auto-tuning workflow to 
 - A/B storage for comparing settings.
 - Built-in low-level pink-noise stimulus that can be routed through the available media output to the car audio path.
 - Five-second microphone capture and FFT-based eight-band estimate (20–60, 60–125, 125–250, 250–500, 500–1k, 1–2k, 2–4k, and 4–8k Hz), plus broad bass/mid/treble summaries.
-- Input-level and clipping checks, plus saved band measurements per selected volume stage.
+- Input-level and clipping checks, logarithmic-band-width normalization for a fairer pink-noise comparison, plus saved band measurements per selected volume stage.
 - Initial bass/treble adjustment suggestions based on those relative measurements.
-- Volume-stage labels (1–10) with separate measurement records for comparison.
+- Volume-stage labels (1–10) with separate measurement records saved across app restarts.
 - Guidance for manually applying suggested changes in the vehicle's own EQ.
 
 ## Important limitations
 
 This is an early signal-analysis prototype, not yet a trained AI model or a calibrated room-measurement system. The current measurement is an early pink-noise/ambient capture workflow and is only a rough starting point; it does not yet calculate a calibrated transfer function or average multiple microphone positions. A phone microphone hears music plus cabin reflections, background noise, microphone response, and automatic gain control. The spectrum of a song also reflects its arrangement and mastering, so it cannot by itself prove that the vehicle has a response problem.
 
-The volume-stage feature records which car-volume setting was measured; it does not control the vehicle volume itself. The app can generate pink noise, but it does not yet perform a calibrated sweep/transfer-function measurement or automatically apply a generated EQ profile to the vehicle's audio DSP.
+The volume-stage feature records which car-volume setting was measured; it does not control the vehicle volume itself. The app can generate pink noise and estimate relative band levels, but it does not yet perform a calibrated sweep/transfer-function measurement or automatically apply a generated EQ profile to the vehicle's audio DSP.
 
 Android apps generally cannot directly change the EQ of arbitrary music apps or a vehicle's Bluetooth audio stream. In the current design, users apply recommendations in the car stereo's own EQ.
 
