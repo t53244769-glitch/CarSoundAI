@@ -278,8 +278,8 @@ class MainActivity : Activity() {
                     else -> "측정 레벨은 확인됐습니다. 곡 구성과 마이크 위치에 영향을 받는 참고값입니다."
                 }
                 handler.post {
-                    micResult.text = String.format(Locale.getDefault(), "분석 완료 · 입력 %.1f dBFS\\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\\n%s", dbfs, bassDb, midDb, trebleDb, bassRec, trebleRec, qualityWarning)
-                    carEqGuide.text = "스펙트럼 분석 기반 EQ 시작값\\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\\n중음 / Mid: 기준에서 시작\\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\\n차량 EQ에 적용 후 다시 측정해 비교하세요."
+                    micResult.text = String.format(Locale.getDefault(), "분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", dbfs, bassDb, midDb, trebleDb, bassRec, trebleRec, qualityWarning)
+                    carEqGuide.text = "스펙트럼 분석 기반 EQ 시작값\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\n중음 / Mid: 기준에서 시작\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\n차량 EQ에 적용 후 다시 측정해 비교하세요."
                 }
             } catch (e: Exception) {
                 handler.post { micResult.text = "마이크 측정 실패: " + (e.message ?: "권한 또는 기기 문제") }
