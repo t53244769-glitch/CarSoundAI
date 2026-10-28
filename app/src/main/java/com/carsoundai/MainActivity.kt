@@ -185,7 +185,7 @@ class MainActivity : Activity() {
             applySystemEq()
             eq.enabled = true
             if (!eq.enabled) throw IllegalStateException("기기에서 전역 출력 EQ 활성화를 거부함")
-            systemStatus.text = "시스템 출력 EQ 활성화 · 실제 밴드 $count개"
+            systemStatus.text = "시스템 출력 EQ 활성화 · 실제 밴드 ${count}개"
             systemStatus.setTextColor(Color.rgb(80,220,160))
         } catch (e: Exception) {
             try { systemEq?.release() } catch (_: Exception) {}
