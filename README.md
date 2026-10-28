@@ -16,8 +16,10 @@
 
 - Selectru brand name and dark navy/blue interface styling. The supplied original brand image has not yet been retrieved from its MYBOX short link, so the original icon must not be considered applied yet.
 
-- Five-step beginner tuning guide and simple presets.
-- Bass, midrange and treble controls for the app's own test-signal playback.
+- Five-step beginner tuning guide and simple presets with dynamic step-by-step guidance.
+- Bass, midrange and treble controls for the app's own test-signal playback; current EQ values persist across launches.
+- Saved A/B profiles persist across launches and can be explicitly cleared.
+- Live 20-second measurement countdown and cancellation control.
 - A/B storage for comparing settings.
 - Built-in low-level pink-noise stimulus that can be routed through the available media output to the car audio path.
 - 20-second microphone capture and FFT-based eight-band estimate (20–60, 60–125, 125–250, 250–500, 500–1k, 1–2k, 2–4k, and 4–8k Hz), plus broad bass/mid/treble summaries.
