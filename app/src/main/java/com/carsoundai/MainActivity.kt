@@ -1,5 +1,14 @@
 package com.carsoundai
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.AudioRecord
+import android.media.MediaRecorder
+import android.os.Handler
+import android.os.Looper
+import kotlin.math.log10
+import kotlin.math.sqrt
+
 import android.app.Activity
 import android.media.AudioAttributes
 import android.media.AudioFormat
