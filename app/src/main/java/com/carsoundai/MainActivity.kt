@@ -207,6 +207,11 @@ class MainActivity : Activity() {
         presetPanel.addView(label("프리셋은 저음·중음·고음 3밴드의 시작값입니다. 콘서트홀·라이브 같은 이름은 실제 잔향 효과를 생성하지 않으며, 공간 음향이나 리버브가 아닌 톤 밸런스만 바꿉니다.", 13f))
         root.addView(presetPanel)
 
+        root.addView(sectionHeader("AI 자동 이퀄라이징", "측정값을 분석해 저음·중음·고음을 한 번에 조정"))
+        root.addView(label("현재 버전은 저장된 8대역 측정값과 규칙 기반 분석으로 보수적인 EQ 시작값을 자동 계산합니다. 학습형 AI 모델이나 차량 DSP 직접 제어는 아니며, 적용 후 반드시 청취 비교하세요.", 13f))
+        root.addView(button("✨ 측정값 기반 AI 자동 EQ 적용") { autoAiEqualize(true) })
+        root.addView(button("측정 없이 기본 자동 EQ 적용") { autoAiEqualize(false) })
+
         root.addView(label("저음 (Bass)", 17f))
         lowValue = label("0 dB")
         root.addView(lowValue)
@@ -374,6 +379,28 @@ class MainActivity : Activity() {
         }
         applyEq()
         updateCarEqGuide()
+    }
+
+    private fun autoAiEqualize(useMeasurement: Boolean) {
+        val profile = if (useMeasurement) volumeProfiles[selectedVolumeStage] else null
+        var bass = profile?.bassRec ?: 0
+        var mid = 0
+        var treble = profile?.trebleRec ?: 0
+        var note = "측정값이 없어 중립을 기준으로 한 기본 자동 보정을 적용했습니다."
+        val bands = profile?.bandDb
+        if (bands != null && bands.size >= 8) {
+            val avg = bands.average()
+            val lowAvg = bands.take(3).average()
+            val midAvg = bands.subList(3, 6).average()
+            val highAvg = bands.takeLast(2).average()
+            bass = (bass + when { lowAvg < avg - 3.0 -> 2; lowAvg > avg + 3.0 -> -2; else -> 0 }).coerceIn(-6, 6)
+            mid = (when { midAvg < avg - 2.5 -> 2; midAvg > avg + 2.5 -> -2; else -> 0 }).coerceIn(-4, 4)
+            treble = (treble + when { highAvg < avg - 3.0 -> 2; highAvg > avg + 3.0 -> -2; else -> 0 }).coerceIn(-6, 6)
+            note = "저·중·고 대역의 상대 레벨을 분석해 자동 계산했습니다. 실내 반사와 휴대폰 마이크 특성으로 오차가 있을 수 있습니다."
+        }
+        setEq(bass, mid, treble)
+        status.text = "자동 EQ 적용 · 저음 $bass / 중음 $mid / 고음 $treble"
+        micResult.text = "자동 EQ 결과\\n저음 $bass · 중음 $mid · 고음 $treble\\n$note\\n청취 후 슬라이더로 미세 조정하세요."
     }
 
     private fun updateCarEqGuide() {
