@@ -10,6 +10,7 @@ import android.graphics.drawable.GradientDrawable
 import android.media.AudioAttributes
 import android.media.AudioFormat
 import android.media.AudioTrack
+import android.media.audiofx.Equalizer
 import android.os.Bundle
 import android.view.View
 import android.widget.Button
@@ -35,6 +36,9 @@ class MainActivity : Activity() {
     private lateinit var curve: CurveView
     private lateinit var values: Array<TextView>
     private lateinit var status: TextView
+    private lateinit var systemStatus: TextView
+    private var systemEq: Equalizer? = null
+    private var systemBandCount: Short = 0
     private lateinit var limiterSwitch: Switch
     private lateinit var masterValue: TextView
     private var master = 0.75
@@ -84,7 +88,12 @@ class MainActivity : Activity() {
         val buttons=LinearLayout(this).apply { orientation=LinearLayout.HORIZONTAL }
         buttons.addView(button("▶ 테스트 노이즈") { if(playing) stopAudio() else startAudio() },LinearLayout.LayoutParams(0,dp(48),1f).apply { rightMargin=dp(5) })
         buttons.addView(button("측정값 보정 적용") { applyMeasured(); refresh(); save(); status.text="아이오닉 5 측정 프로필 보정 적용됨" },LinearLayout.LayoutParams(0,dp(48),1f).apply { leftMargin=dp(5) })
-        play.addView(buttons); addPanel(root,play)
+        play.addView(buttons)
+        systemStatus=txt("시스템 출력 EQ: 연결되지 않음",12f,Color.rgb(255,196,115))
+        play.addView(systemStatus)
+        play.addView(button("시스템 출력 EQ 연결 / 해제") { toggleSystemEq() },LinearLayout.LayoutParams(-1,dp(46)))
+        play.addView(txt("기기가 Android 전역 출력 이퀄라이저를 허용하면 다른 앱의 소리에도 적용됩니다. 기기 펌웨어가 전역 EQ를 막으면 연결되지 않을 수 있습니다.",11f,Color.rgb(158,181,204)))
+        addPanel(root,play)
         val graph=panel()
         graph.addView(txt("주파수 응답 / EQ CURVE",16f,Color.WHITE,true))
         graph.addView(txt("슬라이더 변경 즉시 곡선과 테스트 신호에 반영",12f,Color.rgb(158,181,204)))
@@ -107,7 +116,7 @@ class MainActivity : Activity() {
                         gains[i]=p/10.0-12.0
                         values[i].text=String.format(Locale.US,"%+.1f dB",gains[i])
                         curve.invalidate()
-                        if(fromUser) save()
+                        applySystemEq(); if(fromUser) save()
                     }
                     override fun onStartTrackingTouch(b: SeekBar?) {}
                     override fun onStopTrackingTouch(b: SeekBar?) {}
@@ -147,6 +156,7 @@ class MainActivity : Activity() {
     private fun refresh() {
         if(::values.isInitialized) for(i in gains.indices) values[i].text=String.format(Locale.US,"%+.1f dB",gains[i])
         if(::curve.isInitialized) curve.invalidate()
+        applySystemEq()
         if(::masterValue.isInitialized) masterValue.text="출력 레벨 " + (master*100).toInt() + "%"
     }
     private fun save() {
@@ -154,6 +164,69 @@ class MainActivity : Activity() {
         for(i in gains.indices) e.putFloat("eq_"+i,gains[i].toFloat())
         e.apply()
     }
+    private fun toggleSystemEq() {
+        if (systemEq != null) {
+            try { systemEq?.enabled = false; systemEq?.release() } catch (_: Exception) {}
+            systemEq = null
+            systemBandCount = 0
+            systemStatus.text = "시스템 출력 EQ: 해제됨"
+            systemStatus.setTextColor(Color.rgb(255,196,115))
+            return
+        }
+        try {
+            val eq = Equalizer(0, 0)
+            val count = eq.numberOfBands
+            if (count.toInt() <= 0) {
+                eq.release()
+                throw IllegalStateException("기기에서 출력 EQ 밴드를 제공하지 않음")
+            }
+            systemEq = eq
+            systemBandCount = count
+            applySystemEq()
+            eq.enabled = true
+            if (!eq.enabled) throw IllegalStateException("기기에서 전역 출력 EQ 활성화를 거부함")
+            systemStatus.text = "시스템 출력 EQ 활성화 · 실제 밴드 $count개"
+            systemStatus.setTextColor(Color.rgb(80,220,160))
+        } catch (e: Exception) {
+            try { systemEq?.release() } catch (_: Exception) {}
+            systemEq = null
+            systemBandCount = 0
+            systemStatus.text = "시스템 출력 EQ 미지원: " + (e.message ?: e.javaClass.simpleName)
+            systemStatus.setTextColor(Color.rgb(255,145,125))
+        }
+    }
+
+    private fun applySystemEq() {
+        val eq = systemEq ?: return
+        try {
+            val range = eq.bandLevelRange
+            val minLevel = range[0].toInt()
+            val maxLevel = range[1].toInt()
+            val count = eq.numberOfBands.toInt()
+            for (b in 0 until count) {
+                val centerHz = (eq.getCenterFreq(b.toShort()).toDouble() / 1000.0).coerceAtLeast(20.0)
+                val g = logicalGainAt(centerHz)
+                val level = (g * 100.0).toInt().coerceIn(minLevel, maxLevel).toShort()
+                eq.setBandLevel(b.toShort(), level)
+            }
+        } catch (e: Exception) {
+            systemStatus.text = "시스템 EQ 적용 오류: " + (e.message ?: e.javaClass.simpleName)
+            systemStatus.setTextColor(Color.rgb(255,145,125))
+        }
+    }
+
+    private fun logicalGainAt(freq: Double): Double {
+        val f = freq.coerceIn(hz.first(), hz.last())
+        for (i in 0 until hz.size - 1) {
+            if (f <= hz[i + 1]) {
+                val t = (kotlin.math.ln(f) - kotlin.math.ln(hz[i])) /
+                    (kotlin.math.ln(hz[i + 1]) - kotlin.math.ln(hz[i]))
+                return gains[i] * (1.0 - t) + gains[i + 1] * t
+            }
+        }
+        return gains.last()
+    }
+
     private fun applyMeasured() {
         val mean=measured.average()
         val corr=measured.map { ((mean-it)*0.25).coerceIn(-4.0,4.0) }
@@ -217,7 +290,7 @@ class MainActivity : Activity() {
         if(::status.isInitialized) status.text="정지 · 설정 자동 저장됨"
     }
     override fun onPause() { if(playing) stopAudio(); super.onPause() }
-    override fun onDestroy() { stopAudio(); super.onDestroy() }
+    override fun onDestroy() { stopAudio(); try { systemEq?.release() } catch (_: Exception) {}; systemEq=null; super.onDestroy() }
 
     private inner class CurveView:View(this@MainActivity) {
         private val grid=Paint(3).apply { color=Color.rgb(42,65,87); strokeWidth=dp(1).toFloat() }
