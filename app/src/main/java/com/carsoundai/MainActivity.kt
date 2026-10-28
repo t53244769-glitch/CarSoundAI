@@ -47,6 +47,7 @@ class MainActivity : Activity() {
     private lateinit var volumeStageLabel: TextView
     private lateinit var volumeProfileResult: TextView
     private lateinit var guideText: TextView
+    private lateinit var eqCurve: EqCurveView
     @Volatile private var measuring = false
     @Volatile private var measurementPaused = false
     @Volatile private var activeMeasurementMs = 0L
@@ -222,18 +223,26 @@ class MainActivity : Activity() {
         root.addView(button("측정값으로 EQ 시작값 추천") { autoAiEqualize(true) })
         root.addView(button("기본 EQ 시작값 적용") { autoAiEqualize(false) })
 
-        root.addView(label("저음 (Bass)", 17f))
-        lowValue = label("0 dB")
+        root.addView(sectionHeader("이퀄라이저", "3밴드 톤 조절 · 변경값은 저장됩니다"))
+        root.addView(label("BASS", 11f, Color.rgb(112, 210, 255)))
+        lowValue = label("0 단계")
         root.addView(lowValue)
-        root.addView(makeSlider { v -> low = v; lowValue.text = dbLabel(v); applyEq(); updateCarEqGuide() })
-        root.addView(label("중음 · 보컬 (Mid)", 17f))
-        midValue = label("0 dB")
+        root.addView(makeSlider { v -> low = v; lowValue.text = dbLabel(v); applyEq(); updateCarEqGuide(); if (::eqCurve.isInitialized) eqCurve.invalidate() })
+        root.addView(label("MID  ·  보컬", 11f, Color.rgb(112, 210, 255)))
+        midValue = label("0 단계")
         root.addView(midValue)
-        root.addView(makeSlider { v -> mid = v; midValue.text = dbLabel(v); applyEq(); updateCarEqGuide() })
-        root.addView(label("고음 · 선명도 (Treble)", 17f))
-        highValue = label("0 dB")
+        root.addView(makeSlider { v -> mid = v; midValue.text = dbLabel(v); applyEq(); updateCarEqGuide(); if (::eqCurve.isInitialized) eqCurve.invalidate() })
+        root.addView(label("TREBLE  ·  선명도", 11f, Color.rgb(112, 210, 255)))
+        highValue = label("0 단계")
         root.addView(highValue)
-        root.addView(makeSlider { v -> high = v; highValue.text = dbLabel(v); applyEq(); updateCarEqGuide() })
+        root.addView(makeSlider { v -> high = v; highValue.text = dbLabel(v); applyEq(); updateCarEqGuide(); if (::eqCurve.isInitialized) eqCurve.invalidate() })
+        eqCurve = EqCurveView()
+        root.addView(eqCurve, LinearLayout.LayoutParams(-1, dp(116)).apply { topMargin = dp(6); bottomMargin = dp(8) })
+        val eqActions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+        eqActions.addView(button("테스트 소리 재생") { toggleTone() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(5) })
+        eqActions.addView(button("초기화") { setEq(0, 0, 0) }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(5) })
+        root.addView(eqActions)
+        root.addView(label("이 EQ는 앱 내부 테스트 소리에 적용됩니다. 차량이나 YouTube 등 다른 앱의 소리를 직접 변경하지는 않습니다.", 12f, Color.rgb(157, 190, 218)))
 
         root.addView(sectionHeader("차량 EQ 가이드", "앱의 추천값을 차량 오디오에서 직접 조절"))
         carEqGuide = label("")
@@ -477,6 +486,51 @@ class MainActivity : Activity() {
         } catch (e: Exception) {
             pendingExportJson = null
             status.text = "파일 처리 실패: ${e.message ?: "형식 또는 권한을 확인하세요"}"
+        }
+    }
+
+    private inner class EqCurveView : View(this@MainActivity) {
+        private val gridPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(37, 69, 94); strokeWidth = dp(1).toFloat(); style = android.graphics.Paint.Style.STROKE
+        }
+        private val curvePaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.rgb(65, 218, 242); strokeWidth = dp(3).toFloat(); style = android.graphics.Paint.Style.STROKE; strokeCap = android.graphics.Paint.Cap.ROUND
+        }
+        private val fillPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+            color = Color.argb(34, 65, 218, 242); style = android.graphics.Paint.Style.FILL
+        }
+        override fun onDraw(canvas: android.graphics.Canvas) {
+            super.onDraw(canvas)
+            val left = dp(12).toFloat(); val right = width - dp(12).toFloat()
+            val top = dp(12).toFloat(); val bottom = height - dp(18).toFloat()
+            for (i in 0..4) {
+                val y = top + (bottom - top) * i / 4f
+                canvas.drawLine(left, y, right, y, gridPaint)
+            }
+            val values = listOf(low, low * 0.55f + mid * 0.45f, mid, mid * 0.45f + high * 0.55f, high)
+            val points = values.mapIndexed { i, value ->
+                val x = left + (right - left) * i / (values.size - 1)
+                val y = ((top + bottom) / 2f - value.coerceIn(-12f, 12f) / 12f * (bottom - top) * 0.44f)
+                android.graphics.PointF(x, y)
+            }
+            val path = android.graphics.Path().apply {
+                moveTo(points.first().x, points.first().y)
+                for (i in 1 until points.size) {
+                    val p0 = points[i - 1]; val p1 = points[i]
+                    val midX = (p0.x + p1.x) / 2f
+                    quadTo(p0.x, p0.y, midX, (p0.y + p1.y) / 2f)
+                }
+                lineTo(points.last().x, points.last().y)
+            }
+            val fill = android.graphics.Path(path).apply { lineTo(right, bottom); lineTo(left, bottom); close() }
+            canvas.drawPath(fill, fillPaint)
+            canvas.drawPath(path, curvePaint)
+            val textPaint = android.graphics.Paint(android.graphics.Paint.ANTI_ALIAS_FLAG).apply {
+                color = Color.rgb(157, 190, 218); textSize = dp(10).toFloat(); textAlign = android.graphics.Paint.Align.CENTER
+            }
+            listOf("60 Hz", "250 Hz", "1 kHz", "4 kHz", "12 kHz").forEachIndexed { i, t ->
+                canvas.drawText(t, left + (right - left) * i / 4f, height - dp(3).toFloat(), textPaint)
+            }
         }
     }
 
