@@ -168,11 +168,11 @@ class MainActivity : Activity() {
         root.addView(volumeProfileResult)
         root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); saveVolumeProfiles(); showVolumeProfile() })
 
-        root.addView(label("8대역 주파수 분석", 18f, Color.rgb(20, 43, 75)))
+        root.addView(label("측정 기반 주파수 진단", 18f, Color.rgb(20, 43, 75)))
         micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요.")
         root.addView(micResult)
         root.addView(button("선택한 볼륨 단계에서 5초 분석") { startNoiseMeasurement() })
-        root.addView(label("마이크 입력을 8개 주파수 대역으로 나눠 분석하고, 대역별 상대 레벨과 보정 시작값을 표시합니다. 같은 음악 구간·같은 마이크 위치로 비교하세요. 이 측정은 보정 마이크를 사용한 음압 보정이나 학습된 AI 모델이 아닌 참고용 분석입니다.", 14f))
+        root.addView(label("핑크 노이즈 입력을 8개 대역으로 분석하고 로그 주파수 폭을 보정한 상대 레벨과 보정 시작값을 표시합니다. 현재 진단은 규칙 기반 프로토타입이며 학습된 AI 모델이나 보정 마이크 측정은 아닙니다.", 14f))
 
         root.addView(button("측정용 핑크 노이즈 재생 / 정지") { toggleTone() })
         root.addView(button("이전 단계") { step = (step - 1).coerceAtLeast(0); updateStep() })
@@ -299,12 +299,15 @@ class MainActivity : Activity() {
                 }
                 val rms = if (count > 0) sqrt(squares / count) else 0.0
                 val dbfs = if (rms > 0) 20.0 * log10(rms / 32768.0) else -100.0
-                val bassDb = 10.0 * log10(maxOf(1e-12, bassEnergy / maxOf(1, spectrumFrames)))
-                val midDb = 10.0 * log10(maxOf(1e-12, midEnergy / maxOf(1, spectrumFrames)))
-                val trebleDb = 10.0 * log10(maxOf(1e-12, trebleEnergy / maxOf(1, spectrumFrames)))
+                val bassDb = 10.0 * log10(maxOf(1e-12, bassEnergy / maxOf(1, spectrumFrames) / kotlin.math.ln(250.0 / 20.0)))
+                val midDb = 10.0 * log10(maxOf(1e-12, midEnergy / maxOf(1, spectrumFrames) / kotlin.math.ln(4000.0 / 250.0)))
+                val trebleDb = 10.0 * log10(maxOf(1e-12, trebleEnergy / maxOf(1, spectrumFrames) / kotlin.math.ln(8000.0 / 4000.0)))
                 val bassRec = ((midDb - bassDb) * 0.25).toInt().coerceIn(-4, 4)
                 val trebleRec = ((midDb - trebleDb) * 0.25).toInt().coerceIn(-4, 4)
-                val bandDb = bandEnergy.map { energy -> 10.0 * log10(maxOf(1e-12, energy / maxOf(1, spectrumFrames))) }
+                val bandEdges = doubleArrayOf(20.0, 60.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0)
+                val bandDb = bandEnergy.mapIndexed { index, energy ->
+                    10.0 * log10(maxOf(1e-12, energy / maxOf(1, spectrumFrames) / kotlin.math.ln(bandEdges[index + 1] / bandEdges[index])))
+                }
                 val profile = VolumeProfile(bassDb, midDb, trebleDb, bandDb, bassRec, trebleRec, dbfs)
                 val clipRatio = if (count > 0) clippedSamples.toDouble() / count else 0.0
                 val qualityWarning = when {
@@ -428,16 +431,17 @@ class MainActivity : Activity() {
                 }
             }
             when {
+                hz < 20.0 -> Unit
                 hz < 250.0 -> { bass += power; bassBins++ }
                 hz < 4000.0 -> { mid += power; midBins++ }
-                else -> { treble += power; trebleBins++ }
+                hz < 8000.0 -> { treble += power; trebleBins++ }
             }
         }
         val result = DoubleArray(11)
-        result[0] = bass / maxOf(1, bassBins)
-        result[1] = mid / maxOf(1, midBins)
-        result[2] = treble / maxOf(1, trebleBins)
-        for (band in 0 until 8) result[band + 3] = sums[band] / maxOf(1, bins[band])
+        result[0] = bass / maxOf(1, bassBins) / kotlin.math.ln(250.0 / 20.0)
+        result[1] = mid / maxOf(1, midBins) / kotlin.math.ln(4000.0 / 250.0)
+        result[2] = treble / maxOf(1, trebleBins) / kotlin.math.ln(8000.0 / 4000.0)
+        for (band in 0 until 8) result[band + 3] = sums[band] / maxOf(1, bins[band]) / kotlin.math.ln(edges[band + 1] / edges[band])
         return result
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
