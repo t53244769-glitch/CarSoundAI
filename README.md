@@ -30,7 +30,7 @@
 - Initial bass/treble adjustment suggestions based on those relative measurements.
 - Volume-stage labels (1–10) with separate measurement records saved across app restarts.
 - Guidance for manually applying suggested changes in the vehicle's own EQ.
-- Shareable Selectru JSON profile export/import for current EQ, A/B presets, and saved volume-stage measurements; no raw audio recordings are exported.
+- Shareable Selectru JSON profile export/import for current EQ, A/B presets, saved volume-stage measurements, and vehicle/audio/speaker metadata (speaker configuration, brand, model, installation location, amplifier/DSP/crossover notes); no raw audio recordings are exported.
 - In-app links to public reference data: AutoEq headphone frequency-response profiles, ANIR vehicle impulse-response/noise corpus, and a catalog of room impulse-response datasets.
 
 ## Important limitations
