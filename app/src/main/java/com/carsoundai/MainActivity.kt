@@ -35,6 +35,8 @@ class MainActivity : Activity() {
     private lateinit var highValue: TextView
     private lateinit var micResult: TextView
     private lateinit var carEqGuide: TextView
+    private lateinit var volumeStageLabel: TextView
+    private lateinit var volumeProfileResult: TextView
     @Volatile private var measuring = false
     private var micThread: Thread? = null
     private val handler = Handler(Looper.getMainLooper())
@@ -50,6 +52,10 @@ class MainActivity : Activity() {
     private var playing = false
     private var toneThread: Thread? = null
     private val sampleRate = 44100
+
+    private var selectedVolumeStage = 5
+    private data class VolumeProfile(val bassDb: Double, val midDb: Double, val trebleDb: Double, val bassRec: Int, val trebleRec: Int, val inputDbfs: Double)
+    private val volumeProfiles = mutableMapOf<Int, VolumeProfile>()
 
     private val steps = listOf(
         "1/5 · 기준 소리", "2/5 · 저음", "3/5 · 보컬 선명도",
@@ -138,11 +144,34 @@ class MainActivity : Activity() {
         root.addView(button("A ↔ B 전환") { switchAB() })
         root.addView(label("A와 B를 각각 저장한 뒤 전환하며 비교하세요. 이 비교는 앱의 테스트 톤에 적용됩니다.", 14f))
 
+        root.addView(label("볼륨 단계별 정밀 튜닝", 20f, Color.rgb(20, 43, 75)))
+        root.addView(label("차량 오디오의 실제 볼륨을 직접 바꾸고, 각 단계에서 같은 음악 구간을 측정하세요. 앱이 차량 볼륨을 직접 제어하는 기능은 아니며, 단계별 측정값을 따로 저장해 비교합니다.", 14f))
+        volumeStageLabel = label("측정할 차량 볼륨 단계: 5 / 10", 17f)
+        root.addView(volumeStageLabel)
+        val volumeStageSlider = SeekBar(this).apply {
+            max = 9
+            progress = 4
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    selectedVolumeStage = progress + 1
+                    volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10" + if (volumeProfiles.containsKey(selectedVolumeStage)) " · 측정 저장됨" else " · 미측정"
+                    showVolumeProfile()
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        }
+        root.addView(volumeStageSlider)
+        root.addView(button("현재 볼륨 단계 측정 시작") { startNoiseMeasurement() })
+        volumeProfileResult = label("각 단계에서 같은 음악 구간을 측정하면 볼륨별 차이를 비교할 수 있습니다.", 14f)
+        root.addView(volumeProfileResult)
+        root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); showVolumeProfile() })
+
         root.addView(label("AI 음악 사운드 분석", 18f, Color.rgb(20, 43, 75)))
         micResult = label("분석 전 · 안전하게 주차하고 차량 스피커로 음악을 재생하세요.")
         root.addView(micResult)
-        root.addView(button("음악 재생 중 5초 분석") { startNoiseMeasurement() })
-        root.addView(label("음악 재생 중 마이크 입력을 분석합니다. 현재는 전체 입력 레벨 참고값이며, 다음 단계에서 주파수별 분석과 보정을 확장합니다. 곡의 편곡과 마이크 위치에 영향을 받습니다.", 14f))
+        root.addView(button("선택한 볼륨 단계에서 5초 분석") { startNoiseMeasurement() })
+        root.addView(label("음악 재생 중 마이크 입력을 분석해 저음·중음·고음의 상대 에너지를 계산합니다. 같은 곡의 같은 구간, 같은 마이크 위치로 측정해야 단계 간 비교가 유효합니다. 측정값은 곡 구성과 실내 반사음의 영향을 받는 참고값입니다.", 14f))
 
         root.addView(button("테스트 소리 재생 / 정지") { toggleTone() })
         root.addView(button("이전 단계") { step = (step - 1).coerceAtLeast(0); updateStep() })
@@ -271,6 +300,7 @@ class MainActivity : Activity() {
                 val trebleDb = 10.0 * log10(maxOf(1e-12, trebleEnergy / maxOf(1, spectrumFrames)))
                 val bassRec = ((midDb - bassDb) * 0.25).toInt().coerceIn(-4, 4)
                 val trebleRec = ((midDb - trebleDb) * 0.25).toInt().coerceIn(-4, 4)
+                val profile = VolumeProfile(bassDb, midDb, trebleDb, bassRec, trebleRec, dbfs)
                 val clipRatio = if (count > 0) clippedSamples.toDouble() / count else 0.0
                 val qualityWarning = when {
                     rms < 80.0 -> "입력 신호가 너무 작습니다. 음악 음량을 조금 높이고 다시 측정하세요."
@@ -278,7 +308,10 @@ class MainActivity : Activity() {
                     else -> "측정 레벨은 확인됐습니다. 곡 구성과 마이크 위치에 영향을 받는 참고값입니다."
                 }
                 handler.post {
-                    micResult.text = String.format(Locale.getDefault(), "분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", dbfs, bassDb, midDb, trebleDb, bassRec, trebleRec, qualityWarning)
+                    volumeProfiles[selectedVolumeStage] = profile
+                    volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10 · 측정 저장됨"
+                    showVolumeProfile()
+                    micResult.text = String.format(Locale.getDefault(), "볼륨 단계 %d/10 분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", selectedVolumeStage, dbfs, bassDb, midDb, trebleDb, bassRec, trebleRec, qualityWarning)
                     carEqGuide.text = "스펙트럼 분석 기반 EQ 시작값\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\n중음 / Mid: 기준에서 시작\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\n차량 EQ에 적용 후 다시 측정해 비교하세요."
                 }
             } catch (e: Exception) {
@@ -289,6 +322,15 @@ class MainActivity : Activity() {
                 measuring = false
             }
         }.also { it.start() }
+    }
+
+    private fun showVolumeProfile() {
+        if (!::volumeProfileResult.isInitialized) return
+        val p = volumeProfiles[selectedVolumeStage]
+        val saved = volumeProfiles.toSortedMap().entries.joinToString("\\n") { (stage, v) ->
+            String.format(Locale.getDefault(), "%d/10 단계 · 입력 %.1f dBFS · 추천 저음 %+d / 고음 %+d", stage, v.inputDbfs, v.bassRec, v.trebleRec)
+        }
+        volumeProfileResult.text = (if (p == null) "단계 $selectedVolumeStage/10: 아직 측정하지 않았습니다. 차량 볼륨을 이 단계로 직접 맞추고 같은 음악 구간을 측정하세요." else String.format(Locale.getDefault(), "단계 %d/10 저장됨\n스펙트럼 저음 %.1f · 중음 %.1f · 고음 %.1f dB\n시작 추천: 저음 %+d / 중음 0 / 고음 %+d", selectedVolumeStage, p.bassDb, p.midDb, p.trebleDb, p.bassRec, p.trebleRec)) + if (saved.isNotEmpty()) "\\n\\n저장된 단계\\n$saved" else ""
     }
 
     private fun analyzeSpectrum(samples: ShortArray, count: Int, sampleRate: Int): DoubleArray {
