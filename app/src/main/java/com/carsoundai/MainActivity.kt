@@ -331,7 +331,24 @@ class MainActivity : Activity() {
         root.addView(button("공개 실내 음향 데이터 목록 열기") { openExternal("https://github.com/moisestohias/IR-datasets") })
         root.addView(button("내 EQ·측정값 JSON 내보내기 / 공유") { exportProfileFile() })
         root.addView(button("공유된 EQ·측정값 JSON 가져오기") { importProfileFile() })
-        root.addView(label("공유 파일에는 현재 EQ, 저장된 A/B 설정, 볼륨 단계별 8대역 측정값이 포함됩니다. 가져온 값은 출처와 측정 환경이 다를 수 있으므로 자동으로 신뢰하지 말고 적용 전 확인하세요. 원본 오디오 녹음은 내보내지 않습니다.", 13f))
+        root.addView(label("차량/순정 오디오/튜닝 목적을 붙인 공유 프로필을 만들어 다른 사용자가 검색·비교할 수 있습니다.", 13f))
+        val vehicleNameInput = android.widget.EditText(this).apply { hint = "차량명 (예: 아이오닉 5)"; setSingleLine(true); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
+        val audioSystemInput = android.widget.EditText(this).apply { hint = "오디오 시스템 (예: 순정 오디오)"; setSingleLine(true); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
+        val profileNameInput = android.widget.EditText(this).apply { hint = "프로필 이름 (예: 순정 중저음 균형형)"; setSingleLine(true); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
+        root.addView(vehicleNameInput); root.addView(audioSystemInput); root.addView(profileNameInput)
+        val profileStyle = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
+                listOf("중저음 강조", "고음·선명도", "보컬 중심", "균형형", "저음 절제·야간", "장르 혼합"))
+        }
+        root.addView(profileStyle)
+        val profileNotesInput = android.widget.EditText(this).apply { hint = "설명·측정 조건 (선택)"; minLines = 2; setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
+        root.addView(profileNotesInput)
+        root.addView(button("차량 정보가 포함된 튜닝 프로필 내보내기") {
+            exportProfileFile(vehicleNameInput.text.toString(), audioSystemInput.text.toString(),
+                profileNameInput.text.toString(), profileStyle.selectedItem?.toString() ?: "균형형",
+                profileNotesInput.text.toString())
+        })
+        root.addView(label("공유 파일에는 차량명·오디오 종류·튜닝 성향·설명과 EQ/A-B/측정 기록이 담깁니다. 이 앱 버전은 파일 내보내기·가져오기까지 제공하며 온라인 공개 카탈로그·검색 서버는 아직 없습니다. 차량별 세팅은 트림·스피커·좌석·측정 위치에 따라 달라질 수 있어 ‘공식 최적값’이 아닌 사용자 공유값으로 표시해야 합니다.", 13f))
     }
 
     private fun openExternal(url: String) {
@@ -339,11 +356,16 @@ class MainActivity : Activity() {
         catch (_: Exception) { status.text = "링크를 열 수 없습니다. 인터넷 연결을 확인하세요." }
     }
 
-    private fun exportProfileFile() {
+    private fun exportProfileFile(vehicle: String = "", audioSystem: String = "", profileName: String = "", style: String = "균형형", notes: String = "") {
         val json = JSONObject()
         json.put("format", "selectru-profile")
         json.put("version", 1)
         json.put("createdAt", System.currentTimeMillis())
+        json.put("vehicle", vehicle.trim())
+        json.put("audioSystem", audioSystem.trim())
+        json.put("profileName", profileName.trim())
+        json.put("soundStyle", style)
+        json.put("notes", notes.trim())
         json.put("eq", JSONObject().put("bass", low).put("mid", mid).put("treble", high))
         json.put("ab", JSONObject().apply {
             savedA?.let { put("a", JSONArray(listOf(it.first, it.second, it.third))) }
@@ -360,7 +382,7 @@ class MainActivity : Activity() {
         val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "application/json"
-            putExtra(Intent.EXTRA_TITLE, "selectru-profile.json")
+            putExtra(Intent.EXTRA_TITLE, (profileName.trim().ifBlank { "selectru-profile" }.replace(Regex("[^A-Za-z0-9가-힣_-]"), "_") + ".json"))
         }
         pendingExportJson = json.toString(2)
         startActivityForResult(intent, 72)
