@@ -173,12 +173,12 @@ class MainActivity : Activity() {
         root.addView(button("선택한 볼륨 단계에서 5초 분석") { startNoiseMeasurement() })
         root.addView(label("마이크 입력을 8개 주파수 대역으로 나눠 분석하고, 대역별 상대 레벨과 보정 시작값을 표시합니다. 같은 음악 구간·같은 마이크 위치로 비교하세요. 이 측정은 보정 마이크를 사용한 음압 보정이나 학습된 AI 모델이 아닌 참고용 분석입니다.", 14f))
 
-        root.addView(button("테스트 소리 재생 / 정지") { toggleTone() })
+        root.addView(button("측정용 핑크 노이즈 재생 / 정지") { toggleTone() })
         root.addView(button("이전 단계") { step = (step - 1).coerceAtLeast(0); updateStep() })
         root.addView(button("다음 단계") { step = (step + 1).coerceAtMost(4); updateStep() })
         root.addView(button("현재 설정 초기화") { setEq(0, 0, 0) })
         root.addView(label("안내", 18f, Color.rgb(20, 43, 75)))
-        root.addView(label("이 앱은 자체 테스트 톤과 이 앱에 연결된 이퀄라이저를 조절합니다. Android의 제한으로 다른 음악 앱이나 차량 블루투스에서 재생 중인 모든 음악을 직접 변경하지는 못합니다. 차량 오디오의 EQ는 차량/오디오 시스템에서 조절하세요.", 14f))
+        root.addView(label("핑크 노이즈는 측정 자극음으로 사용합니다. 이 앱은 자체 테스트 소리와 이 앱에 연결된 이퀄라이저를 조절합니다. Android의 제한으로 다른 음악 앱이나 차량 블루투스에서 재생 중인 모든 음악을 직접 변경하지는 못합니다. 차량 오디오의 EQ는 차량/오디오 시스템에서 조절하세요.", 14f))
         root.addView(label("안전을 위해 주행 중에는 조작하지 마세요.", 14f, Color.rgb(170, 45, 35)))
     }
 
@@ -430,12 +430,20 @@ class MainActivity : Activity() {
             audioTrack!!.play()
             toneThread = Thread {
                 val buffer = ShortArray(1024)
-                var phase = 0.0
+                var b0 = 0.0; var b1 = 0.0; var b2 = 0.0; var b3 = 0.0; var b4 = 0.0; var b5 = 0.0
+                val random = java.util.Random()
                 while (playing && !Thread.currentThread().isInterrupted) {
                     for (i in buffer.indices) {
-                        buffer[i] = (sin(phase) * 5000).toInt().toShort()
-                        phase += 2.0 * PI * 440.0 / sampleRate
-                        if (phase >= 2.0 * PI) phase -= 2.0 * PI
+                        val white = random.nextDouble() * 2.0 - 1.0
+                        b0 = 0.99886 * b0 + white * 0.0555179
+                        b1 = 0.99332 * b1 + white * 0.0750759
+                        b2 = 0.96900 * b2 + white * 0.1538520
+                        b3 = 0.86650 * b3 + white * 0.3104856
+                        b4 = 0.55000 * b4 + white * 0.5329522
+                        b5 = -0.7616 * b5 - white * 0.0168980
+                        val pink = b0 + b1 + b2 + b3 + b4 + b5 + white * 0.5362
+                        b5 = white * 0.115926
+                        buffer[i] = (pink * 700.0).toInt().coerceIn(-12000, 12000).toShort()
                     }
                     audioTrack?.write(buffer, 0, buffer.size)
                 }
