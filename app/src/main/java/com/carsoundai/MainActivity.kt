@@ -305,6 +305,15 @@ class MainActivity : Activity() {
                 val bassRec = ((midDb - bassDb) * 0.25).toInt().coerceIn(-4, 4)
                 val trebleRec = ((midDb - trebleDb) * 0.25).toInt().coerceIn(-4, 4)
                 val bandDb = bandEnergy.map { energy -> 10.0 * log10(maxOf(1e-12, energy / maxOf(1, spectrumFrames))) }
+                val bandNames = listOf("20–60 Hz", "60–125 Hz", "125–250 Hz", "250–500 Hz", "500 Hz–1 kHz", "1–2 kHz", "2–4 kHz", "4–8 kHz")
+                val maxBand = bandDb.indices.maxByOrNull { bandDb[it] } ?: 0
+                val minBand = bandDb.indices.minByOrNull { bandDb[it] } ?: 0
+                val bandSpread = bandDb[maxBand] - bandDb[minBand]
+                val ruleDiagnosis = if (bandSpread < 3.0) {
+                    "8개 대역 편차가 비교적 작습니다."
+                } else {
+                    "상대적으로 높은 대역: ${bandNames[maxBand]}, 낮은 대역: ${bandNames[minBand]} (편차 ${String.format(Locale.getDefault(), "%.1f", bandSpread)} dB). 큰 EQ 변화보다 작은 조정 후 재측정을 권장합니다."
+                }
                 val profile = VolumeProfile(bassDb, midDb, trebleDb, bandDb, bassRec, trebleRec, dbfs)
                 val clipRatio = if (count > 0) clippedSamples.toDouble() / count else 0.0
                 val qualityWarning = when {
@@ -317,7 +326,7 @@ class MainActivity : Activity() {
                     saveVolumeProfiles()
                     volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10" + if (volumeProfiles.containsKey(selectedVolumeStage)) " · 측정 저장됨" else " · 미측정"
                     showVolumeProfile()
-                    micResult.text = String.format(Locale.getDefault(), "볼륨 단계 %d/10 분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n8대역(20–60 / 60–125 / 125–250 / 250–500 / 500–1k / 1–2k / 2–4k / 4–8k Hz):\n%s\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", measurementStage, dbfs, bassDb, midDb, trebleDb, bandDb.mapIndexed { i, v -> String.format(Locale.getDefault(), "%s %.1f dB", listOf("20–60", "60–125", "125–250", "250–500", "500–1k", "1–2k", "2–4k", "4–8k")[i], v) }.joinToString("\n"), bassRec, trebleRec, qualityWarning)
+                    micResult.text = String.format(Locale.getDefault(), "볼륨 단계 %d/10 분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n8대역(20–60 / 60–125 / 125–250 / 250–500 / 500–1k / 1–2k / 2–4k / 4–8k Hz):\n%s\n규칙 기반 진단: %s\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", measurementStage, dbfs, bassDb, midDb, trebleDb, bandDb.mapIndexed { i, v -> String.format(Locale.getDefault(), "%s %.1f dB", listOf("20–60", "60–125", "125–250", "250–500", "500–1k", "1–2k", "2–4k", "4–8k")[i], v) }.joinToString("\n"), ruleDiagnosis, bassRec, trebleRec, qualityWarning)
                     carEqGuide.text = "스펙트럼 분석 기반 EQ 시작값\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\n중음 / Mid: 기준에서 시작\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\n차량 EQ에 적용 후 다시 측정해 비교하세요."
                 }
             } catch (e: Exception) {
