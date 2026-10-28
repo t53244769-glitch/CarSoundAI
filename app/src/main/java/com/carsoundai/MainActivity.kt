@@ -296,9 +296,9 @@ class MainActivity : Activity() {
             while (base < n) { var wr = 1.0; var wi = 0.0; for (k in 0 until len / 2) { val a = base + k; val b = a + len / 2; val tr = wr * re[b] - wi * im[b]; val ti = wr * im[b] + wi * re[b]; re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti; val nw = wr * c - wi * si; wi = wr * si + wi * c; wr = nw }; base += len }
             len = len shl 1
         }
-        var bass = 0.0; var mid = 0.0; var treble = 0.0
-        for (bin in 1 until n / 2) { val hz = bin.toDouble() * sampleRate / n; val p = re[bin] * re[bin] + im[bin] * im[bin]; when { hz < 250.0 -> bass += p; hz < 4000.0 -> mid += p; else -> treble += p } }
-        return doubleArrayOf(bass, mid, treble)
+        var bass = 0.0; var bassBins = 0; var mid = 0.0; var midBins = 0; var treble = 0.0; var trebleBins = 0
+        for (bin in 1 until n / 2) { val hz = bin.toDouble() * sampleRate / n; val p = re[bin] * re[bin] + im[bin] * im[bin]; when { hz < 250.0 -> { bass += p; bassBins++ }; hz < 4000.0 -> { mid += p; midBins++ }; else -> { treble += p; trebleBins++ } } }
+        return doubleArrayOf(bass / maxOf(1, bassBins), mid / maxOf(1, midBins), treble / maxOf(1, trebleBins))
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
