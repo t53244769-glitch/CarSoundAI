@@ -20,6 +20,7 @@ CarSoundAI aims to bring a measurement-driven car-audio auto-tuning workflow to 
 - Built-in low-level pink-noise stimulus that can be routed through the available media output to the car audio path.
 - Five-second microphone capture and FFT-based eight-band estimate (20–60, 60–125, 125–250, 250–500, 500–1k, 1–2k, 2–4k, and 4–8k Hz), plus broad bass/mid/treble summaries.
 - Input-level and clipping checks, logarithmic-band-width normalization for a fairer pink-noise comparison, plus saved band measurements per selected volume stage.
+- Transparent rule-based diagnosis of the relatively highest/lowest measured bands with conservative retuning guidance; this is not a trained AI model.
 - Initial bass/treble adjustment suggestions based on those relative measurements.
 - Volume-stage labels (1–10) with separate measurement records saved across app restarts.
 - Guidance for manually applying suggested changes in the vehicle's own EQ.
