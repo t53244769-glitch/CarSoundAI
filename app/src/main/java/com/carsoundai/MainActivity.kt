@@ -2,6 +2,12 @@ package com.carsoundai
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.content.Intent
+import android.net.Uri
+import org.json.JSONArray
+import org.json.JSONObject
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import android.os.Handler
@@ -317,6 +323,107 @@ class MainActivity : Activity() {
         manualPanel.addView(label("이 버전은 규칙 기반 분석 프로토타입이며 학습된 AI나 보정 마이크 기반 장비가 아닙니다. 휴대전화 마이크의 자동 게인, 실내 반사음, 주변 소음, 음악 자체의 주파수 구성에 영향을 받습니다. 다른 앱이나 차량 블루투스의 음악 EQ를 직접 바꾸지 못하므로 차량 헤드유닛에서 추천 방향을 적용하세요. 주행 중 조작하거나 큰 테스트 음을 오래 재생하지 마세요.", 14f))
         manualPanel.addView(label("안전을 위해 주행 중에는 조작하지 마세요.", 14f, Color.rgb(255, 130, 130)))
         root.addView(manualPanel)
+
+        root.addView(sectionHeader("공개 데이터·프로필 공유", "공개 연구자료를 참고하고 측정 프로필을 파일로 공유"))
+        root.addView(label("공개 데이터는 용도와 라이선스를 확인해 사용합니다. AutoEq는 주로 헤드폰 주파수 응답 데이터이므로 차량 EQ에 그대로 적용하지 않습니다. 차량 실내 음향 연구자료는 모델 학습·검증 참고용이며, 데이터 파일 자체가 자동 보정 AI는 아닙니다.", 13f))
+        root.addView(button("AutoEq 공개 EQ 데이터 정보 열기") { openExternal("https://github.com/jaakkopasanen/AutoEq") })
+        root.addView(button("차량 음향 ANIR 연구 데이터 정보 열기") { openExternal("https://dss-kiel.de/index.php/media-center/data-bases/anir-corpus/") })
+        root.addView(button("공개 실내 음향 데이터 목록 열기") { openExternal("https://github.com/moisestohias/IR-datasets") })
+        root.addView(button("내 EQ·측정값 JSON 내보내기 / 공유") { exportProfileFile() })
+        root.addView(button("공유된 EQ·측정값 JSON 가져오기") { importProfileFile() })
+        root.addView(label("공유 파일에는 현재 EQ, 저장된 A/B 설정, 볼륨 단계별 8대역 측정값이 포함됩니다. 가져온 값은 출처와 측정 환경이 다를 수 있으므로 자동으로 신뢰하지 말고 적용 전 확인하세요. 원본 오디오 녹음은 내보내지 않습니다.", 13f))
+    }
+
+    private fun openExternal(url: String) {
+        try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
+        catch (_: Exception) { status.text = "링크를 열 수 없습니다. 인터넷 연결을 확인하세요." }
+    }
+
+    private fun exportProfileFile() {
+        val json = JSONObject()
+        json.put("format", "selectru-profile")
+        json.put("version", 1)
+        json.put("createdAt", System.currentTimeMillis())
+        json.put("eq", JSONObject().put("bass", low).put("mid", mid).put("treble", high))
+        json.put("ab", JSONObject().apply {
+            savedA?.let { put("a", JSONArray(listOf(it.first, it.second, it.third))) }
+            savedB?.let { put("b", JSONArray(listOf(it.first, it.second, it.third))) }
+        })
+        val measurements = JSONArray()
+        volumeProfiles.toSortedMap().forEach { (stage, p) ->
+            measurements.put(JSONObject().put("stage", stage).put("bassDb", p.bassDb)
+                .put("midDb", p.midDb).put("trebleDb", p.trebleDb)
+                .put("bands", JSONArray(p.bandDb)).put("bassRec", p.bassRec)
+                .put("trebleRec", p.trebleRec).put("inputDbfs", p.inputDbfs))
+        }
+        json.put("measurements", measurements)
+        val intent = Intent(Intent.ACTION_CREATE_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+            putExtra(Intent.EXTRA_TITLE, "selectru-profile.json")
+        }
+        pendingExportJson = json.toString(2)
+        startActivityForResult(intent, 72)
+    }
+
+    private var pendingExportJson: String? = null
+
+    private fun importProfileFile() {
+        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/json"
+        }
+        startActivityForResult(intent, 73)
+    }
+
+    @Deprecated("Uses document picker for Android compatibility")
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (resultCode != RESULT_OK || data?.data == null) return
+        val uri = data.data!!
+        try {
+            if (requestCode == 72) {
+                val payload = pendingExportJson ?: return
+                contentResolver.openOutputStream(uri)?.bufferedWriter(Charsets.UTF_8)?.use { it.write(payload) }
+                pendingExportJson = null
+                status.text = "Selectru 프로필 JSON을 내보냈습니다. 파일을 원하는 사람과 공유할 수 있습니다."
+            } else if (requestCode == 73) {
+                val raw = contentResolver.openInputStream(uri)?.bufferedReader(Charsets.UTF_8)?.use { it.readText() } ?: error("파일을 읽을 수 없습니다.")
+                val json = JSONObject(raw)
+                require(json.optString("format") == "selectru-profile") { "Selectru 프로필 파일이 아닙니다." }
+                val eq = json.optJSONObject("eq")
+                if (eq != null) setEq(eq.optInt("bass", 0), eq.optInt("mid", 0), eq.optInt("treble", 0))
+                val ab = json.optJSONObject("ab")
+                fun triple(key: String): Triple<Int, Int, Int>? {
+                    val arr = ab?.optJSONArray(key) ?: return null
+                    if (arr.length() != 3) return null
+                    return Triple(arr.getInt(0).coerceIn(-12,12), arr.getInt(1).coerceIn(-12,12), arr.getInt(2).coerceIn(-12,12))
+                }
+                if (ab != null) {
+                    savedA = triple("a"); savedB = triple("b"); saveABSettings(); updateABLabels()
+                }
+                val measurements = json.optJSONArray("measurements") ?: JSONArray()
+                var imported = 0
+                for (i in 0 until measurements.length()) {
+                    val p = measurements.optJSONObject(i) ?: continue
+                    val stage = p.optInt("stage", 0)
+                    val bandsJson = p.optJSONArray("bands") ?: continue
+                    if (stage !in 1..10 || bandsJson.length() != 8) continue
+                    val bands = (0 until bandsJson.length()).map { bandsJson.getDouble(it) }
+                    volumeProfiles[stage] = VolumeProfile(
+                        p.optDouble("bassDb"), p.optDouble("midDb"), p.optDouble("trebleDb"),
+                        bands, p.optInt("bassRec").coerceIn(-6,6), p.optInt("trebleRec").coerceIn(-6,6),
+                        p.optDouble("inputDbfs")
+                    )
+                    imported++
+                }
+                saveVolumeProfiles(); showVolumeProfile()
+                status.text = "프로필 가져오기 완료 · 측정 기록 $imported개. 출처와 측정 환경을 확인한 뒤 사용하세요."
+            }
+        } catch (e: Exception) {
+            pendingExportJson = null
+            status.text = "파일 처리 실패: ${e.message ?: "형식 또는 권한을 확인하세요"}"
+        }
     }
 
     private fun sectionHeader(title: String, subtitle: String): LinearLayout {
