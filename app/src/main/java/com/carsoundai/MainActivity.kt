@@ -183,12 +183,29 @@ class MainActivity : Activity() {
         root.addView(status)
         guideText = label(guidance[0])
         root.addView(guideText)
-        root.addView(sectionHeader("빠른 프리셋", "원하는 소리 성향을 한 번에 선택"))
-        val presets = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        presets.addView(button("저음 강조") { setEq(4, 0, 1) }, LinearLayout.LayoutParams(0, dp(52), 1f))
-        presets.addView(button("보컬") { setEq(-1, 3, 0) }, LinearLayout.LayoutParams(0, dp(52), 1f))
-        presets.addView(button("균형") { setEq(0, 0, 0) }, LinearLayout.LayoutParams(0, dp(52), 1f))
-        root.addView(presets)
+        val presetPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        val presetHeader = sectionHeader("공간·장르 이퀄라이저 ▾", "눌러서 프리셋 펼치기 / 접기")
+        presetHeader.setOnClickListener {
+            val opening = presetPanel.visibility != View.VISIBLE
+            presetPanel.visibility = if (opening) View.VISIBLE else View.GONE
+            (presetHeader.getChildAt(0) as TextView).text = if (opening) "공간·장르 이퀄라이저 ▴" else "공간·장르 이퀄라이저 ▾"
+            if (opening) scroll.post { scroll.smoothScrollTo(0, presetHeader.top) }
+        }
+        root.addView(presetHeader)
+        fun presetRow(vararg items: Pair<String, Triple<Int, Int, Int>>) {
+            val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
+            items.forEach { (title, values) ->
+                row.addView(button(title) { setEq(values.first, values.second, values.third); status.text = "프리셋 적용: $title" },
+                    LinearLayout.LayoutParams(0, dp(50), 1f).apply { leftMargin = dp(2); rightMargin = dp(2) })
+            }
+            presetPanel.addView(row)
+        }
+        presetRow("균형" to Triple(0,0,0), "저음 강조" to Triple(4,0,1), "보컬" to Triple(-1,3,0))
+        presetRow("콘서트홀" to Triple(2,0,2), "라이브" to Triple(2,2,2), "클럽" to Triple(5,1,3))
+        presetRow("차량" to Triple(2,1,1), "스튜디오" to Triple(0,1,0), "시네마" to Triple(3,0,2))
+        presetRow("어쿠스틱" to Triple(-1,2,2), "팟캐스트" to Triple(-2,4,1), "야간 저음" to Triple(2,1,-2))
+        presetPanel.addView(label("프리셋은 저음·중음·고음 3밴드의 시작값입니다. 콘서트홀·라이브 같은 이름은 실제 잔향 효과를 생성하지 않으며, 공간 음향이나 리버브가 아닌 톤 밸런스만 바꿉니다.", 13f))
+        root.addView(presetPanel)
 
         root.addView(label("저음 (Bass)", 17f))
         lowValue = label("0 dB")
@@ -274,9 +291,27 @@ class MainActivity : Activity() {
         root.addView(button("이전 단계") { step = (step - 1).coerceAtLeast(0); updateStep() })
         root.addView(button("다음 단계") { step = (step + 1).coerceAtMost(4); updateStep() })
         root.addView(button("현재 설정 초기화") { setEq(0, 0, 0) })
-        root.addView(sectionHeader("사용 안내", "정확도와 안전을 위한 참고 사항"))
-        root.addView(label("핑크 노이즈는 측정 자극음으로 사용합니다. 이 앱은 자체 테스트 소리와 이 앱에 연결된 이퀄라이저를 조절합니다. Android의 제한으로 다른 음악 앱이나 차량 블루투스에서 재생 중인 모든 음악을 직접 변경하지는 못합니다. 차량 오디오의 EQ는 차량/오디오 시스템에서 조절하세요.", 14f))
-        root.addView(label("안전을 위해 주행 중에는 조작하지 마세요.", 14f, Color.rgb(255, 130, 130)))
+        val manualPanel = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
+        val manualHeader = sectionHeader("내장 사용설명서 ▾", "눌러서 설명을 펼치고 아래로 스크롤")
+        manualHeader.setOnClickListener {
+            val opening = manualPanel.visibility != View.VISIBLE
+            manualPanel.visibility = if (opening) View.VISIBLE else View.GONE
+            (manualHeader.getChildAt(0) as TextView).text = if (opening) "내장 사용설명서 ▴" else "내장 사용설명서 ▾"
+            if (opening) scroll.post { scroll.smoothScrollTo(0, manualHeader.top) }
+        }
+        root.addView(manualHeader)
+        manualPanel.addView(sectionHeader("1. 처음 시작하기", "안전한 측정 순서"))
+        manualPanel.addView(label("① 차량을 안전하게 주차하고 주차 브레이크를 적용합니다. ② 창문을 닫고 HVAC와 음장 효과를 가능한 한 끕니다. ③ 휴대전화 마이크를 가리지 않고 고정합니다. ④ 차량 볼륨을 일정하게 맞춥니다. ⑤ 앱의 핑크 노이즈를 재생하고 20초 분석을 시작합니다. 측정 중에는 소리 크기와 휴대전화 위치를 바꾸지 마세요.", 14f))
+        manualPanel.addView(sectionHeader("2. 이퀄라이저 프리셋", "공간·장르별 시작값"))
+        manualPanel.addView(label("균형은 기준점, 저음 강조·클럽은 저역을 더 강조, 보컬·팟캐스트는 말소리 대역을 강조, 어쿠스틱은 중고역을 살리는 방향입니다. 차량·라이브·콘서트홀·시네마 프리셋도 저음/중음/고음 3밴드만 바꿉니다. 실제 콘서트홀 잔향, 서라운드, 리버브를 만들어 내지는 않습니다. 취향과 스피커에 따라 조금씩 조절하세요.", 14f))
+        manualPanel.addView(sectionHeader("3. 측정 결과 읽기", "8대역 스펙트럼과 dBFS"))
+        manualPanel.addView(label("8대역 막대는 휴대전화 마이크에 들어온 소리의 상대적인 대역 레벨입니다. dBFS는 디지털 입력 레벨로, 0 dBFS에 가까울수록 클리핑 위험이 커집니다. 입력 레벨이 너무 낮거나 클리핑 경고가 있으면 볼륨을 안전한 범위에서 조정하고 다시 측정하세요. 이 값은 보정된 SPL이나 차량 스피커의 절대 주파수 응답이 아닙니다.", 14f))
+        manualPanel.addView(sectionHeader("4. A/B 비교와 볼륨별 기록", "변경 전후를 비교"))
+        manualPanel.addView(label("현재 EQ를 A로 저장하고 다른 설정을 B로 저장한 뒤 A↔B 전환으로 비교합니다. 저장 설정과 볼륨 단계별 측정 기록은 앱을 다시 열어도 유지됩니다. 같은 음악 구간·같은 측정 위치·같은 차량 볼륨을 사용해야 비교가 더 의미 있습니다.", 14f))
+        manualPanel.addView(sectionHeader("5. 한계와 안전", "측정 결과는 참고값"))
+        manualPanel.addView(label("이 버전은 규칙 기반 분석 프로토타입이며 학습된 AI나 보정 마이크 기반 장비가 아닙니다. 휴대전화 마이크의 자동 게인, 실내 반사음, 주변 소음, 음악 자체의 주파수 구성에 영향을 받습니다. 다른 앱이나 차량 블루투스의 음악 EQ를 직접 바꾸지 못하므로 차량 헤드유닛에서 추천 방향을 적용하세요. 주행 중 조작하거나 큰 테스트 음을 오래 재생하지 마세요.", 14f))
+        manualPanel.addView(label("안전을 위해 주행 중에는 조작하지 마세요.", 14f, Color.rgb(255, 130, 130)))
+        root.addView(manualPanel)
     }
 
     private fun sectionHeader(title: String, subtitle: String): LinearLayout {
