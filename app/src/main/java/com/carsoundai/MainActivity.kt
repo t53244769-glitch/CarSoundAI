@@ -79,7 +79,7 @@ class MainActivity : Activity() {
 
     private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 
-    private fun label(text: String, size: Float = 16f, color: Int = Color.rgb(30, 37, 48)): TextView {
+    private fun label(text: String, size: Float = 16f, color: Int = Color.rgb(224, 235, 247)): TextView {
         return TextView(this).apply {
             this.text = text
             textSize = size
@@ -96,7 +96,7 @@ class MainActivity : Activity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(18), dp(20), dp(24))
-            setBackgroundColor(Color.rgb(246, 248, 251))
+            setBackgroundColor(Color.rgb(5, 15, 29))
         }
         scroll.addView(root)
         setContentView(scroll)
@@ -111,33 +111,12 @@ class MainActivity : Activity() {
                 intArrayOf(Color.rgb(13, 35, 67), Color.rgb(27, 91, 145))
             ).apply { cornerRadius = dp(24).toFloat() }
         }
-        val mark = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER
-            setPadding(dp(10), dp(12), dp(10), dp(12))
-            background = GradientDrawable().apply {
-                shape = GradientDrawable.OVAL
-                setColor(Color.rgb(255, 255, 255))
-            }
-        }
-        listOf(12, 24, 34, 20, 10).forEachIndexed { index, height ->
-            val bar = View(this).apply {
-                background = GradientDrawable().apply {
-                    cornerRadius = dp(3).toFloat()
-                    setColor(if (index == 2) Color.rgb(37, 177, 220) else Color.rgb(35, 100, 168))
-                }
-            }
-            mark.addView(bar, LinearLayout.LayoutParams(dp(4), dp(height)).apply {
-                leftMargin = dp(2); rightMargin = dp(2)
-            })
-        }
-        hero.addView(mark, LinearLayout.LayoutParams(dp(64), dp(64)))
         val heroText = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(14), 0, 0, 0)
+            setPadding(0, 0, 0, 0)
         }
         heroText.addView(TextView(this).apply {
-            text = "CarSoundAI"
+            text = "Selectru"
             textSize = 27f
             typeface = Typeface.create("sans-serif", Typeface.BOLD)
             setTextColor(Color.WHITE)
@@ -150,7 +129,7 @@ class MainActivity : Activity() {
             setPadding(0, dp(3), 0, dp(4))
         })
         heroText.addView(TextView(this).apply {
-            text = "차량 사운드 측정과 튜닝"
+            text = "선택은 자유롭게, 진실은 정확하게."
             textSize = 14f
             setTextColor(Color.WHITE)
         })
@@ -163,16 +142,16 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
         }
-        listOf("01  듣기", "02  측정", "03  조정").forEachIndexed { i, title ->
+        listOf("01  듣기", "02  측정", "03  선택").forEachIndexed { i, title ->
             val chip = TextView(this).apply {
                 text = title
                 textSize = 12f
                 gravity = Gravity.CENTER
-                setTextColor(if (i == 0) Color.WHITE else Color.rgb(35, 83, 125))
+                setTextColor(if (i == 0) Color.WHITE else Color.rgb(170, 216, 245))
                 setPadding(dp(8), dp(10), dp(8), dp(10))
                 background = GradientDrawable().apply {
                     cornerRadius = dp(14).toFloat()
-                    setColor(if (i == 0) Color.rgb(25, 103, 168) else Color.rgb(226, 237, 247))
+                    setColor(if (i == 0) Color.rgb(25, 103, 168) else Color.rgb(13, 42, 69))
                 }
             }
             quickSummary.addView(chip, LinearLayout.LayoutParams(0, dp(40), 1f).apply {
@@ -180,7 +159,7 @@ class MainActivity : Activity() {
             })
         }
         root.addView(quickSummary)
-        root.addView(sectionHeader("5단계 사운드 가이드", "처음이라면 순서대로 따라 해 보세요."))
+        root.addView(sectionHeader("Selectru 사운드 가이드", "선택은 자유롭게, 진실은 정확하게."))
         status = label(steps[0], 17f)
         root.addView(status)
         root.addView(label(guidance[0]))
@@ -267,20 +246,20 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(14), dp(11), dp(14), dp(11))
             background = GradientDrawable().apply {
-                setColor(Color.rgb(231, 240, 249))
+                setColor(Color.rgb(10, 29, 51))
                 cornerRadius = dp(14).toFloat()
-                setStroke(dp(1), Color.rgb(211, 226, 240))
+                setStroke(dp(1), Color.rgb(34, 88, 133))
             }
             addView(TextView(this@MainActivity).apply {
                 text = title
                 textSize = 18f
                 typeface = Typeface.create("sans-serif", Typeface.BOLD)
-                setTextColor(Color.rgb(19, 57, 93))
+                setTextColor(Color.rgb(245, 249, 255))
             })
             addView(TextView(this@MainActivity).apply {
                 text = subtitle
                 textSize = 12f
-                setTextColor(Color.rgb(76, 103, 128))
+                setTextColor(Color.rgb(157, 190, 218))
                 setPadding(0, dp(3), 0, 0)
             })
             val params = LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT)
