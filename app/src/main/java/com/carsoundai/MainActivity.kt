@@ -507,7 +507,7 @@ class MainActivity : Activity() {
                 val y = top + (bottom - top) * i / 4f
                 canvas.drawLine(left, y, right, y, gridPaint)
             }
-            val values = listOf(low, low * 0.55f + mid * 0.45f, mid, mid * 0.45f + high * 0.55f, high)
+            val values = listOf(low.toFloat(), low * 0.55f + mid * 0.45f, mid.toFloat(), mid * 0.45f + high * 0.55f, high.toFloat())
             val points = values.mapIndexed { i, value ->
                 val x = left + (right - left) * i / (values.size - 1)
                 val y = ((top + bottom) / 2f - value.coerceIn(-12f, 12f) / 12f * (bottom - top) * 0.44f)
