@@ -1,1 +1,53 @@
 
+name: Build CarSoundAI APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Install Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Extract Android project
+        run: |
+          mkdir -p /tmp/carsoundai
+          unzip -q CarSoundAI_APK_Build.zip -d /tmp/carsoundai
+          ROOT="$(find /tmp/carsoundai -name settings.gradle -o -name settings.gradle.kts | head -n 1)"
+          if [ -z "$ROOT" ]; then
+            echo "Gradle settings file not found in ZIP"
+            exit 1
+          fi
+          cp -R "$(dirname "$ROOT")"/. .
+          
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+
+      - name: Build debug APK
+        run: gradle assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: CarSoundAI-debug-apk
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
