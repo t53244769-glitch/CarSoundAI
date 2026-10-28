@@ -71,6 +71,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        loadVolumeProfiles()
         buildUi()
     }
 
@@ -165,7 +166,7 @@ class MainActivity : Activity() {
         root.addView(button("현재 볼륨 단계 측정 시작") { startNoiseMeasurement() })
         volumeProfileResult = label("각 단계에서 같은 음악 구간을 측정하면 볼륨별 차이를 비교할 수 있습니다.", 14f)
         root.addView(volumeProfileResult)
-        root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); showVolumeProfile() })
+        root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); saveVolumeProfiles(); showVolumeProfile() })
 
         root.addView(label("8대역 주파수 분석", 18f, Color.rgb(20, 43, 75)))
         micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요.")
@@ -313,6 +314,7 @@ class MainActivity : Activity() {
                 }
                 handler.post {
                     volumeProfiles[measurementStage] = profile
+                    saveVolumeProfiles()
                     volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10" + if (volumeProfiles.containsKey(selectedVolumeStage)) " · 측정 저장됨" else " · 미측정"
                     showVolumeProfile()
                     micResult.text = String.format(Locale.getDefault(), "볼륨 단계 %d/10 분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n8대역(20–60 / 60–125 / 125–250 / 250–500 / 500–1k / 1–2k / 2–4k / 4–8k Hz):\n%s\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", measurementStage, dbfs, bassDb, midDb, trebleDb, bandDb.mapIndexed { i, v -> String.format(Locale.getDefault(), "%s %.1f dB", listOf("20–60", "60–125", "125–250", "250–500", "500–1k", "1–2k", "2–4k", "4–8k")[i], v) }.joinToString("\n"), bassRec, trebleRec, qualityWarning)
@@ -326,6 +328,38 @@ class MainActivity : Activity() {
                 measuring = false
             }
         }.also { it.start() }
+    }
+
+    private fun saveVolumeProfiles() {
+        val prefs = getSharedPreferences("car_sound_measurements", MODE_PRIVATE)
+        val editor = prefs.edit().clear()
+        for ((stage, p) in volumeProfiles) {
+            val values = mutableListOf(p.bassDb, p.midDb, p.trebleDb)
+            values.addAll(p.bandDb)
+            values.add(p.bassRec.toDouble())
+            values.add(p.trebleRec.toDouble())
+            values.add(p.inputDbfs)
+            editor.putString("stage_$stage", values.joinToString(","))
+        }
+        editor.apply()
+    }
+
+    private fun loadVolumeProfiles() {
+        val prefs = getSharedPreferences("car_sound_measurements", MODE_PRIVATE)
+        for (stage in 1..10) {
+            val raw = prefs.getString("stage_$stage", null) ?: continue
+            try {
+                val v = raw.split(",").map { it.toDouble() }
+                if (v.size == 14) {
+                    volumeProfiles[stage] = VolumeProfile(
+                        v[0], v[1], v[2], v.subList(3, 11),
+                        v[11].toInt(), v[12].toInt(), v[13]
+                    )
+                }
+            } catch (_: Exception) {
+                // Ignore a corrupted saved profile and allow a fresh measurement.
+            }
+        }
     }
 
     private fun showVolumeProfile() {
