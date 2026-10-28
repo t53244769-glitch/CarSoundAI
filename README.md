@@ -15,26 +15,27 @@ CarSoundAI aims to bring a measurement-driven car-audio auto-tuning workflow to 
 ## Current prototype
 
 - Five-step beginner tuning guide and simple presets.
-- Bass, midrange and treble controls for the app's own test-tone playback.
+- Bass, midrange and treble controls for the app's own test-signal playback.
 - A/B storage for comparing settings.
-- Five-second microphone capture while music is playing through the car speakers.
-- FFT-based estimate of average spectral energy in bass (<250 Hz), midrange (250 Hz–4 kHz), and treble (>4 kHz).
+- Built-in low-level pink-noise stimulus that can be routed through the available media output to the car audio path.
+- Five-second microphone capture and FFT-based eight-band estimate (20–60, 60–125, 125–250, 250–500, 500–1k, 1–2k, 2–4k, and 4–8k Hz), plus broad bass/mid/treble summaries.
+- Input-level and clipping checks, plus saved band measurements per selected volume stage.
 - Initial bass/treble adjustment suggestions based on those relative measurements.
 - Volume-stage labels (1–10) with separate measurement records for comparison.
 - Guidance for manually applying suggested changes in the vehicle's own EQ.
 
 ## Important limitations
 
-This is an early signal-analysis prototype, not yet a trained AI model or a calibrated room-measurement system. The current music-based analysis is only a rough starting point. A phone microphone hears music plus cabin reflections, background noise, microphone response, and automatic gain control. The spectrum of a song also reflects its arrangement and mastering, so it cannot by itself prove that the vehicle has a response problem.
+This is an early signal-analysis prototype, not yet a trained AI model or a calibrated room-measurement system. The current measurement is an early pink-noise/ambient capture workflow and is only a rough starting point; it does not yet calculate a calibrated transfer function or average multiple microphone positions. A phone microphone hears music plus cabin reflections, background noise, microphone response, and automatic gain control. The spectrum of a song also reflects its arrangement and mastering, so it cannot by itself prove that the vehicle has a response problem.
 
-The volume-stage feature records which car-volume setting was measured; it does not control the vehicle volume itself. The current app does not yet perform a calibrated sweep/pink-noise measurement or automatically apply a generated EQ profile to the vehicle's audio DSP.
+The volume-stage feature records which car-volume setting was measured; it does not control the vehicle volume itself. The app can generate pink noise, but it does not yet perform a calibrated sweep/transfer-function measurement or automatically apply a generated EQ profile to the vehicle's audio DSP.
 
 Android apps generally cannot directly change the EQ of arbitrary music apps or a vehicle's Bluetooth audio stream. In the current design, users apply recommendations in the car stereo's own EQ.
 
 ## Roadmap
 
-1. Replace broad three-band-only analysis with repeatable known-signal measurement and multi-band response estimation.
-2. Add calibration support where device/microphone calibration data is available; detect silence, noise, clipping, and unstable measurements.
+1. Upgrade the current pink-noise capture to repeatable multi-frame measurement with background-noise estimation, stability checks, and spatial averaging.
+2. Add calibration support where device/microphone calibration data is available and estimate a reference-relative transfer response.
 3. Build the diagnosis/recommendation layer with confidence values and listener goals (neutral, bass-forward, vocal clarity). A real trained model will require representative measurement data and validation; until then, label rule-based decisions honestly.
 4. Add safe, bounded EQ recommendations and a guided before/after remeasurement loop.
 5. Validate across Android devices, car cabins, head units, volume levels, and music genres before calling the results production-ready.
