@@ -27,6 +27,9 @@ class MainActivity : Activity() {
     private var low = 0
     private var mid = 0
     private var high = 0
+    private var savedA: Triple<Int, Int, Int>? = null
+    private var savedB: Triple<Int, Int, Int>? = null
+    private var showingA = false
     private var step = 0
     private var audioTrack: AudioTrack? = null
     private var equalizer: Equalizer? = null
@@ -101,6 +104,20 @@ class MainActivity : Activity() {
         root.addView(highValue)
         root.addView(makeSlider { v -> high = v; highValue.text = dbLabel(v); applyEq() })
 
+        root.addView(label("A/B 설정 비교", 18f, Color.rgb(20, 43, 75)))
+        root.addView(button("현재 설정을 A로 저장") {
+            savedA = Triple(low, mid, high)
+            showingA = true
+            status.text = "A 설정 저장됨"
+        })
+        root.addView(button("현재 설정을 B로 저장") {
+            savedB = Triple(low, mid, high)
+            showingA = false
+            status.text = "B 설정 저장됨"
+        })
+        root.addView(button("A ↔ B 전환") { switchAB() })
+        root.addView(label("A와 B를 각각 저장한 뒤 전환하며 비교하세요. 이 비교는 앱의 테스트 톤에 적용됩니다.", 14f))
+
         root.addView(button("테스트 소리 재생 / 정지") { toggleTone() })
         root.addView(button("이전 단계") { step = (step - 1).coerceAtLeast(0); updateStep() })
         root.addView(button("다음 단계") { step = (step + 1).coerceAtMost(4); updateStep() })
@@ -143,6 +160,19 @@ class MainActivity : Activity() {
         if (view is SeekBar) output.add(view)
         if (view is LinearLayout) for (i in 0 until view.childCount) collectSliders(view.getChildAt(i), output)
         if (view is ScrollView) collectSliders(view.getChildAt(0), output)
+    }
+
+    private fun switchAB() {
+        val a = savedA
+        val b = savedB
+        if (a == null || b == null) {
+            status.text = "먼저 A와 B 설정을 각각 저장하세요."
+            return
+        }
+        val target = if (showingA) b else a
+        setEq(target.first, target.second, target.third)
+        showingA = !showingA
+        status.text = if (showingA) "A 설정 적용 중" else "B 설정 적용 중"
     }
 
     private fun updateStep() {
