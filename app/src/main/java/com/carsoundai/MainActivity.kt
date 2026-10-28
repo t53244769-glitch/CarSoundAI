@@ -312,7 +312,7 @@ class MainActivity : Activity() {
         root.addView(spectrumView, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = dp(10)
         })
-        micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요. 측정 시간은 최소 1분입니다.")
+        micResult = label("분석 전 · 안전하게 주차한 뒤 차량 EQ를 기본값으로 맞추고 핑크 노이즈를 재생하세요. 최소 1분 동안 측정합니다.")
         root.addView(micResult)
         root.addView(button("측정 일시정지 / 이어하기") { if (measuring) { measurementPaused = !measurementPaused; micResult.text = if (measurementPaused) "일시정지됨 · 광고가 끝나면 이어하기를 누르세요." else "측정 재개 · 유효 측정 시간을 이어서 계산합니다." } else startNoiseMeasurement() })
         root.addView(label("핑크 노이즈 입력을 8개 대역으로 분석하고 로그 주파수 폭을 보정한 상대 레벨과 보정 시작값을 표시합니다. 현재 진단은 규칙 기반 프로토타입이며 학습된 AI 모델이나 보정 마이크 측정은 아닙니다.", 14f))
@@ -331,7 +331,7 @@ class MainActivity : Activity() {
         }
         root.addView(manualHeader)
         manualPanel.addView(sectionHeader("1. 처음 시작하기", "안전한 측정 순서"))
-        manualPanel.addView(label("① 차량을 안전하게 주차하고 주차 브레이크를 적용합니다. ② 창문을 닫고 HVAC와 음장 효과를 가능한 한 끕니다. ③ 휴대전화 마이크를 가리지 않고 고정합니다. ④ 차량 볼륨을 일정하게 맞춥니다. ⑤ 앱의 핑크 노이즈를 재생하고 20초 분석을 시작합니다. 측정 중에는 소리 크기와 휴대전화 위치를 바꾸지 마세요.", 14f))
+        manualPanel.addView(label("① 차량을 안전하게 주차하고 주차 브레이크를 적용합니다. ② 창문을 닫고 HVAC와 음장 효과를 가능한 한 끕니다. ③ 휴대전화 마이크를 가리지 않고 고정합니다. ④ 차량 볼륨을 일정하게 맞춥니다. ⑤ 앱의 핑크 노이즈를 재생하고 최소 1분 분석을 시작합니다. 측정 중에는 소리 크기와 휴대전화 위치를 바꾸지 마세요.", 14f))
         manualPanel.addView(sectionHeader("2. 이퀄라이저 프리셋", "공간·장르별 시작값"))
         manualPanel.addView(label("균형은 기준점, 저음 강조·클럽은 저역을 더 강조, 보컬·팟캐스트는 말소리 대역을 강조, 어쿠스틱은 중고역을 살리는 방향입니다. 차량·라이브·콘서트홀·시네마 프리셋도 저음/중음/고음 3밴드만 바꿉니다. 실제 콘서트홀 잔향, 서라운드, 리버브를 만들어 내지는 않습니다. 취향과 스피커에 따라 조금씩 조절하세요.", 14f))
         manualPanel.addView(sectionHeader("3. 측정 결과 읽기", "8대역 스펙트럼과 dBFS"))
