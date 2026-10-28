@@ -54,7 +54,7 @@ class MainActivity : Activity() {
     private val sampleRate = 44100
 
     private var selectedVolumeStage = 5
-    private data class VolumeProfile(val bassDb: Double, val midDb: Double, val trebleDb: Double, val bassRec: Int, val trebleRec: Int, val inputDbfs: Double)
+    private data class VolumeProfile(val bassDb: Double, val midDb: Double, val trebleDb: Double, val bandDb: List<Double>, val bassRec: Int, val trebleRec: Int, val inputDbfs: Double)
     private val volumeProfiles = mutableMapOf<Int, VolumeProfile>()
 
     private val steps = listOf(
@@ -167,11 +167,11 @@ class MainActivity : Activity() {
         root.addView(volumeProfileResult)
         root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); showVolumeProfile() })
 
-        root.addView(label("AI 음악 사운드 분석", 18f, Color.rgb(20, 43, 75)))
+        root.addView(label("8대역 주파수 분석", 18f, Color.rgb(20, 43, 75)))
         micResult = label("분석 전 · 안전하게 주차하고 차량 스피커로 음악을 재생하세요.")
         root.addView(micResult)
         root.addView(button("선택한 볼륨 단계에서 5초 분석") { startNoiseMeasurement() })
-        root.addView(label("음악 재생 중 마이크 입력을 분석해 저음·중음·고음의 상대 에너지를 계산합니다. 같은 곡의 같은 구간, 같은 마이크 위치로 측정해야 단계 간 비교가 유효합니다. 측정값은 곡 구성과 실내 반사음의 영향을 받는 참고값입니다.", 14f))
+        root.addView(label("마이크 입력을 8개 주파수 대역으로 나눠 분석하고, 대역별 상대 레벨과 보정 시작값을 표시합니다. 같은 음악 구간·같은 마이크 위치로 비교하세요. 이 측정은 보정 마이크를 사용한 음압 보정이나 학습된 AI 모델이 아닌 참고용 분석입니다.", 14f))
 
         root.addView(button("테스트 소리 재생 / 정지") { toggleTone() })
         root.addView(button("이전 단계") { step = (step - 1).coerceAtLeast(0); updateStep() })
@@ -280,6 +280,7 @@ class MainActivity : Activity() {
                 var bassEnergy = 0.0
                 var midEnergy = 0.0
                 var trebleEnergy = 0.0
+                val bandEnergy = DoubleArray(8)
                 var spectrumFrames = 0
                 val endAt = System.currentTimeMillis() + 5000
                 while (measuring && System.currentTimeMillis() < endAt) {
@@ -290,6 +291,7 @@ class MainActivity : Activity() {
                         if (n == buffer.size) {
                             val bands = analyzeSpectrum(buffer, n, rate)
                             bassEnergy += bands[0]; midEnergy += bands[1]; trebleEnergy += bands[2]
+                            for (band in 0 until 8) bandEnergy[band] += bands[band + 3]
                             spectrumFrames++
                         }
                     }
@@ -301,7 +303,8 @@ class MainActivity : Activity() {
                 val trebleDb = 10.0 * log10(maxOf(1e-12, trebleEnergy / maxOf(1, spectrumFrames)))
                 val bassRec = ((midDb - bassDb) * 0.25).toInt().coerceIn(-4, 4)
                 val trebleRec = ((midDb - trebleDb) * 0.25).toInt().coerceIn(-4, 4)
-                val profile = VolumeProfile(bassDb, midDb, trebleDb, bassRec, trebleRec, dbfs)
+                val bandDb = bandEnergy.map { energy -> 10.0 * log10(maxOf(1e-12, energy / maxOf(1, spectrumFrames))) }
+                val profile = VolumeProfile(bassDb, midDb, trebleDb, bandDb, bassRec, trebleRec, dbfs)
                 val clipRatio = if (count > 0) clippedSamples.toDouble() / count else 0.0
                 val qualityWarning = when {
                     rms < 80.0 -> "입력 신호가 너무 작습니다. 음악 음량을 조금 높이고 다시 측정하세요."
@@ -312,7 +315,7 @@ class MainActivity : Activity() {
                     volumeProfiles[measurementStage] = profile
                     volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10" + if (volumeProfiles.containsKey(selectedVolumeStage)) " · 측정 저장됨" else " · 미측정"
                     showVolumeProfile()
-                    micResult.text = String.format(Locale.getDefault(), "볼륨 단계 %d/10 분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", selectedVolumeStage, dbfs, bassDb, midDb, trebleDb, bassRec, trebleRec, qualityWarning)
+                    micResult.text = String.format(Locale.getDefault(), "볼륨 단계 %d/10 분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n8대역(20–60 / 60–125 / 125–250 / 250–500 / 500–1k / 1–2k / 2–4k / 4–8k Hz):\n%s\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", measurementStage, dbfs, bassDb, midDb, trebleDb, bandDb.mapIndexed { i, v -> String.format(Locale.getDefault(), "%s %.1f dB", listOf("20–60", "60–125", "125–250", "250–500", "500–1k", "1–2k", "2–4k", "4–8k")[i], v) }.joinToString("\n"), bassRec, trebleRec, qualityWarning)
                     carEqGuide.text = "스펙트럼 분석 기반 EQ 시작값\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\n중음 / Mid: 기준에서 시작\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\n차량 EQ에 적용 후 다시 측정해 비교하세요."
                 }
             } catch (e: Exception) {
@@ -336,19 +339,72 @@ class MainActivity : Activity() {
 
     private fun analyzeSpectrum(samples: ShortArray, count: Int, sampleRate: Int): DoubleArray {
         val n = 1024
-        val re = DoubleArray(n); val im = DoubleArray(n)
-        for (i in 0 until minOf(n, count)) re[i] = samples[i].toDouble() * (0.5 - 0.5 * kotlin.math.cos(2.0 * PI * i / (n - 1))) / 32768.0
+        val re = DoubleArray(n)
+        val im = DoubleArray(n)
+        for (i in 0 until minOf(n, count)) {
+            val window = 0.5 - 0.5 * kotlin.math.cos(2.0 * PI * i / (n - 1))
+            re[i] = samples[i].toDouble() * window / 32768.0
+        }
         var j = 0
-        for (i in 1 until n) { var bit = n shr 1; while ((j and bit) != 0) { j = j xor bit; bit = bit shr 1 }; j = j xor bit; if (i < j) { val t = re[i]; re[i] = re[j]; re[j] = t } }
+        for (i in 1 until n) {
+            var bit = n shr 1
+            while ((j and bit) != 0) { j = j xor bit; bit = bit shr 1 }
+            j = j xor bit
+            if (i < j) {
+                val t = re[i]; re[i] = re[j]; re[j] = t
+            }
+        }
         var len = 2
         while (len <= n) {
-            val angle = -2.0 * PI / len; val c = kotlin.math.cos(angle); val si = kotlin.math.sin(angle); var base = 0
-            while (base < n) { var wr = 1.0; var wi = 0.0; for (k in 0 until len / 2) { val a = base + k; val b = a + len / 2; val tr = wr * re[b] - wi * im[b]; val ti = wr * im[b] + wi * re[b]; re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti; val nw = wr * c - wi * si; wi = wr * si + wi * c; wr = nw }; base += len }
+            val angle = -2.0 * PI / len
+            val c = kotlin.math.cos(angle)
+            val si = kotlin.math.sin(angle)
+            var base = 0
+            while (base < n) {
+                var wr = 1.0
+                var wi = 0.0
+                for (k in 0 until len / 2) {
+                    val a = base + k
+                    val b = a + len / 2
+                    val tr = wr * re[b] - wi * im[b]
+                    val ti = wr * im[b] + wi * re[b]
+                    re[b] = re[a] - tr; im[b] = im[a] - ti
+                    re[a] += tr; im[a] += ti
+                    val nw = wr * c - wi * si
+                    wi = wr * si + wi * c; wr = nw
+                }
+                base += len
+            }
             len = len shl 1
         }
-        var bass = 0.0; var bassBins = 0; var mid = 0.0; var midBins = 0; var treble = 0.0; var trebleBins = 0
-        for (bin in 1 until n / 2) { val hz = bin.toDouble() * sampleRate / n; val p = re[bin] * re[bin] + im[bin] * im[bin]; when { hz < 250.0 -> { bass += p; bassBins++ }; hz < 4000.0 -> { mid += p; midBins++ }; else -> { treble += p; trebleBins++ } } }
-        return doubleArrayOf(bass / maxOf(1, bassBins), mid / maxOf(1, midBins), treble / maxOf(1, trebleBins))
+        val edges = doubleArrayOf(20.0, 60.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0)
+        val sums = DoubleArray(8)
+        val bins = IntArray(8)
+        var bass = 0.0; var bassBins = 0
+        var mid = 0.0; var midBins = 0
+        var treble = 0.0; var trebleBins = 0
+        for (bin in 1 until n / 2) {
+            val hz = bin.toDouble() * sampleRate / n
+            val power = re[bin] * re[bin] + im[bin] * im[bin]
+            for (band in 0 until 8) {
+                if (hz >= edges[band] && hz < edges[band + 1]) {
+                    sums[band] += power
+                    bins[band]++
+                    break
+                }
+            }
+            when {
+                hz < 250.0 -> { bass += power; bassBins++ }
+                hz < 4000.0 -> { mid += power; midBins++ }
+                else -> { treble += power; trebleBins++ }
+            }
+        }
+        val result = DoubleArray(11)
+        result[0] = bass / maxOf(1, bassBins)
+        result[1] = mid / maxOf(1, midBins)
+        result[2] = treble / maxOf(1, trebleBins)
+        for (band in 0 until 8) result[band + 3] = sums[band] / maxOf(1, bins[band])
+        return result
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
