@@ -138,11 +138,11 @@ class MainActivity : Activity() {
         root.addView(button("A ↔ B 전환") { switchAB() })
         root.addView(label("A와 B를 각각 저장한 뒤 전환하며 비교하세요. 이 비교는 앱의 테스트 톤에 적용됩니다.", 14f))
 
-        root.addView(label("실내 소음 간이 측정", 18f, Color.rgb(20, 43, 75)))
-        micResult = label("측정 전 · 차량을 안전하게 주차한 뒤 측정하세요.")
+        root.addView(label("AI 음악 사운드 분석", 18f, Color.rgb(20, 43, 75)))
+        micResult = label("분석 전 · 안전하게 주차하고 차량 스피커로 음악을 재생하세요.")
         root.addView(micResult)
-        root.addView(button("주변 소음 5초 측정") { startNoiseMeasurement() })
-        root.addView(label("마이크 측정은 주변 소리 크기만 상대적으로 보여줍니다. 보정된 dB SPL이나 주파수 응답 측정은 아닙니다.", 14f))
+        root.addView(button("음악 재생 중 5초 분석") { startNoiseMeasurement() })
+        root.addView(label("음악 재생 중 마이크 입력을 분석합니다. 현재는 전체 입력 레벨 참고값이며, 다음 단계에서 주파수별 분석과 보정을 확장합니다. 곡의 편곡과 마이크 위치에 영향을 받습니다.", 14f))
 
         root.addView(button("테스트 소리 재생 / 정지") { toggleTone() })
         root.addView(button("이전 단계") { step = (step - 1).coerceAtLeast(0); updateStep() })
@@ -235,7 +235,7 @@ class MainActivity : Activity() {
             return
         }
         measuring = true
-        micResult.text = "측정 중… 주변에서 말하지 말고 5초 기다려 주세요."
+        micResult.text = "분석 중… 차량 스피커에서 음악을 평소 음량으로 재생하며 기다려 주세요."
         micThread = Thread {
             var recorder: AudioRecord? = null
             try {
