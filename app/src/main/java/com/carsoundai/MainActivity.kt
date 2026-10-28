@@ -65,6 +65,7 @@ class MainActivity : Activity() {
     private val sampleRate = 44100
 
     private var selectedVolumeStage = 5
+    private var measurementDurationSeconds = 20
     private data class VolumeProfile(val bassDb: Double, val midDb: Double, val trebleDb: Double, val bandDb: List<Double>, val bassRec: Int, val trebleRec: Int, val inputDbfs: Double)
     private val volumeProfiles = mutableMapOf<Int, VolumeProfile>()
 
@@ -257,6 +258,20 @@ class MainActivity : Activity() {
         root.addView(label("A와 B를 각각 저장한 뒤 전환하며 비교하세요. 이 비교는 앱의 테스트 톤에 적용됩니다.", 14f))
 
         root.addView(sectionHeader("볼륨별 측정", "단계별 기록을 저장해 차이를 확인"))
+        root.addView(label("분석 시간", 15f))
+        val durationPicker = android.widget.Spinner(this).apply {
+            adapter = android.widget.ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
+                listOf("20초 빠른 측정", "5분 수집 테스트", "20분 장시간 수집", "60분 장시간 수집"))
+            setSelection(0)
+            onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
+                override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
+                override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
+                    measurementDurationSeconds = listOf(20, 300, 1200, 3600).getOrElse(position) { 20 }
+                }
+            }
+        }
+        root.addView(durationPicker)
+        root.addView(label("장시간 측정은 휴대전화 마이크의 상대 스펙트럼을 여러 프레임 평균하는 테스트입니다. 보정된 음압 측정이나 전문적인 전달함수 측정을 대체하지 않습니다. 테스트 중 차량은 주차 상태로 두고, 마이크 위치와 재생 음량을 유지하세요.", 13f))
         root.addView(label("차량 오디오 볼륨을 직접 맞춘 뒤 측정용 핑크 노이즈를 재생하고 측정하세요. 앱이 차량 볼륨을 직접 제어하지는 않으며, 단계별 스펙트럼을 따로 저장해 비교합니다.", 14f))
         volumeStageLabel = label("측정할 차량 볼륨 단계: 5 / 10", 17f)
         root.addView(volumeStageLabel)
@@ -295,7 +310,7 @@ class MainActivity : Activity() {
         })
         micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요. 측정 시간은 20초입니다.")
         root.addView(micResult)
-        root.addView(button("선택한 볼륨 단계에서 20초 분석 / 취소") { if (measuring) { measuring = false; micResult.text = "측정을 취소했습니다." } else startNoiseMeasurement() })
+        root.addView(button("선택한 볼륨 단계에서 선택 시간 분석 / 취소") { if (measuring) { measuring = false; micResult.text = "측정을 취소했습니다." } else startNoiseMeasurement() })
         root.addView(label("핑크 노이즈 입력을 8개 대역으로 분석하고 로그 주파수 폭을 보정한 상대 레벨과 보정 시작값을 표시합니다. 현재 진단은 규칙 기반 프로토타입이며 학습된 AI 모델이나 보정 마이크 측정은 아닙니다.", 14f))
 
         root.addView(button("측정용 핑크 노이즈 재생 / 정지") { toggleTone() })
@@ -350,14 +365,14 @@ class MainActivity : Activity() {
         root.addView(profileStyle)
         val profileNotesInput = android.widget.EditText(this).apply { hint = "설명·측정 조건 (선택)"; minLines = 2; setTextColor(Color.WHITE); setHintTextColor(Color.GRAY) }
         root.addView(profileNotesInput)
-        root.addView(button("차량 정보가 포함된 튜닝 프로필 내보내기") {
+        root.addView(button("MYBOX에 수집 데이터·차량 프로필 저장") {\n            exportProfileFile(vehicleNameInput.text.toString().ifBlank { "현대 아이오닉 5" }, audioSystemInput.text.toString().ifBlank { "순정 오디오" },\n                profileNameInput.text.toString().ifBlank { "IONIQ5 기준 측정 프로필" }, profileStyle.selectedItem?.toString() ?: "균형형",\n                profileNotesInput.text.toString(), speakerSetupInput.text.toString(), speakerBrandInput.text.toString(),\n                speakerModelInput.text.toString(), speakerLocationInput.text.toString(), dspInput.text.toString())\n        })\n        root.addView(button("차량 정보가 포함된 튜닝 프로필 내보내기") {
             exportProfileFile(vehicleNameInput.text.toString(), audioSystemInput.text.toString(),
                 profileNameInput.text.toString(), profileStyle.selectedItem?.toString() ?: "균형형",
                 profileNotesInput.text.toString(), speakerSetupInput.text.toString(),
                 speakerBrandInput.text.toString(), speakerModelInput.text.toString(),
                 speakerLocationInput.text.toString(), dspInput.text.toString())
         })
-        root.addView(label("공유 파일에는 차량명·오디오 종류·스피커 구성·제조사/모델·장착 위치·DSP 정보·튜닝 성향·설명과 EQ/A-B/측정 기록이 담깁니다. 이 앱 버전은 파일 내보내기·가져오기까지 제공하며 온라인 공개 카탈로그·검색 서버는 아직 없습니다. 차량별 세팅은 트림·스피커·좌석·측정 위치에 따라 달라질 수 있어 ‘공식 최적값’이 아닌 사용자 공유값으로 표시해야 합니다.", 13f))
+        root.addView(label("MYBOX 저장을 누른 뒤 파일 저장 위치 선택 화면에서 MYBOX를 선택하고 수집데이터/IONIQ5 폴더를 지정하세요. 폴더가 없으면 MYBOX에서 먼저 만들어야 할 수 있습니다. 이 방식은 Android 파일 선택기를 통한 저장이며 자동 백그라운드 동기화나 MYBOX 계정 직접 연동은 아닙니다.\\n공유 파일에는 차량명·오디오 종류·스피커 구성·제조사/모델·장착 위치·DSP 정보·튜닝 성향·설명과 EQ/A-B/측정 기록이 담깁니다. 이 앱 버전은 파일 내보내기·가져오기까지 제공하며 온라인 공개 카탈로그·검색 서버는 아직 없습니다. 차량별 세팅은 트림·스피커·좌석·측정 위치에 따라 달라질 수 있어 ‘공식 최적값’이 아닌 사용자 공유값으로 표시해야 합니다.", 13f))
     }
 
     private fun openExternal(url: String) {
@@ -634,12 +649,12 @@ class MainActivity : Activity() {
         }
         measuring = true
         val measurementStage = selectedVolumeStage
-        micResult.text = "20초 측정 중… 핑크 노이즈를 차량 스피커로 재생하고 측정이 끝날 때까지 기다려 주세요."
-        val measurementStartedAt = System.currentTimeMillis()
+        micResult.text = "${measurementDurationSeconds}초 측정 중… 핑크 노이즈를 차량 스피커로 재생하고 측정이 끝날 때까지 기다려 주세요."
+        val sessionDurationForUi = measurementDurationSeconds\n        val measurementStartedAt = System.currentTimeMillis()
         val ticker = object : Runnable {
             override fun run() {
                 if (!measuring || !::micResult.isInitialized) return
-                val remaining = (20 - ((System.currentTimeMillis() - measurementStartedAt) / 1000).toInt()).coerceAtLeast(0)
+                val remaining = (sessionDurationForUi - ((System.currentTimeMillis() - measurementStartedAt) / 1000).toInt()).coerceAtLeast(0)
                 micResult.text = "측정 중 · 남은 시간 ${remaining}초\\n차량은 안전하게 주차하고 측정음을 일정하게 유지하세요."
                 if (remaining > 0) handler.postDelayed(this, 500)
             }
@@ -662,7 +677,8 @@ class MainActivity : Activity() {
                 var trebleEnergy = 0.0
                 val bandEnergy = DoubleArray(8)
                 var spectrumFrames = 0
-                val endAt = System.currentTimeMillis() + 20000
+                val sessionDuration = measurementDurationSeconds
+                val endAt = System.currentTimeMillis() + sessionDuration * 1000L
                 while (measuring && System.currentTimeMillis() < endAt) {
                     val n = recorder.read(buffer, 0, buffer.size)
                     if (n > 0) {
