@@ -1,6 +1,6 @@
-# CarSoundAI
+# Selectru (CarSoundAI)
 
-CarSoundAI aims to bring a measurement-driven car-audio auto-tuning workflow to an Android app, with an AI decision layer that interprets acoustic measurements and recommends corrections. The goal is not to copy proprietary internals of Mstick Sound Studio, but to build a transparent, testable workflow with similar high-level stages.
+**Selectru means “choice and truth” — 선택과 진실.** The Android prototype focuses on transparent, measurement-informed car-audio tuning: users choose a sound direction, inspect measured values, and verify changes rather than trusting unexplained recommendations. It does not copy proprietary internals of Mstick Sound Studio.
 
 ## Target workflow
 
@@ -14,13 +14,15 @@ CarSoundAI aims to bring a measurement-driven car-audio auto-tuning workflow to 
 
 ## Current prototype
 
+- Selectru brand name and dark navy/blue interface styling. The supplied original brand image has not yet been retrieved from its MYBOX short link, so the original icon must not be considered applied yet.
+
 - Five-step beginner tuning guide and simple presets.
 - Bass, midrange and treble controls for the app's own test-signal playback.
 - A/B storage for comparing settings.
 - Built-in low-level pink-noise stimulus that can be routed through the available media output to the car audio path.
-- Five-second microphone capture and FFT-based eight-band estimate (20–60, 60–125, 125–250, 250–500, 500–1k, 1–2k, 2–4k, and 4–8k Hz), plus broad bass/mid/treble summaries.
+- 20-second microphone capture and FFT-based eight-band estimate (20–60, 60–125, 125–250, 250–500, 500–1k, 1–2k, 2–4k, and 4–8k Hz), plus broad bass/mid/treble summaries.
 - Input-level and clipping checks, logarithmic-band-width normalization for a fairer pink-noise comparison, plus saved band measurements per selected volume stage.
-- Transparent rule-based diagnosis of the relatively highest/lowest measured bands with conservative retuning guidance; this is not a trained AI model.
+- Visual eight-band spectrum bars and transparent rule-based diagnosis of the relatively highest/lowest measured bands with conservative retuning guidance; this is not a trained AI model.
 - Initial bass/treble adjustment suggestions based on those relative measurements.
 - Volume-stage labels (1–10) with separate measurement records saved across app restarts.
 - Guidance for manually applying suggested changes in the vehicle's own EQ.
@@ -43,7 +45,7 @@ Android apps generally cannot directly change the EQ of arbitrary music apps or 
 
 ## Reference workflow
 
-The public Mstick documentation describes its Auto Tune workflow as setting up the cabin and phone position, adjusting the volume, measuring the car speakers, and generating a customized sound profile. It recommends a quiet parked car, windows closed, HVAC off, and holding the phone with its microphone unobstructed near face height. CarSoundAI uses these as general measurement-practice references; it does not claim to reproduce Mstick's proprietary implementation.
+The public Mstick documentation describes its Auto Tune workflow as setting up the cabin and phone position, adjusting the volume, measuring the car speakers, and generating a customized sound profile. It recommends a quiet parked car, windows closed, HVAC off, and holding the phone with its microphone unobstructed near face height. Selectru uses these as general measurement-practice references; it does not claim to reproduce Mstick's proprietary implementation.
 
 Reference: https://www.manual.m-gears.com/soundautotune
 
