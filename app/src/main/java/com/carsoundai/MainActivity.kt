@@ -454,7 +454,7 @@ class MainActivity : Activity() {
                     imported++
                 }
                 saveVolumeProfiles(); showVolumeProfile()
-                status.text = "프로필 가져오기 완료 · 측정 기록 $imported개. 출처와 측정 환경을 확인한 뒤 사용하세요."
+                status.text = "프로필 가져오기 완료 · 측정 기록 ${imported}개. 출처와 측정 환경을 확인한 뒤 사용하세요."
             }
         } catch (e: Exception) {
             pendingExportJson = null
