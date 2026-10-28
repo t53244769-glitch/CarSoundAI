@@ -154,7 +154,7 @@ class MainActivity : Activity() {
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                     selectedVolumeStage = progress + 1
-                    volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10" + if (volumeProfiles.containsKey(selectedVolumeStage)) " · 측정 저장됨" else " · 미측정"
+                    volumeStageLabel.text = "측정한 차량 볼륨 단계: $measurementStage / 10" + if (volumeProfiles.containsKey(measurementStage)) " · 측정 저장됨" else " · 미측정"
                     showVolumeProfile()
                 }
                 override fun onStartTrackingTouch(seekBar: SeekBar?) {}
@@ -331,10 +331,10 @@ class MainActivity : Activity() {
     private fun showVolumeProfile() {
         if (!::volumeProfileResult.isInitialized) return
         val p = volumeProfiles[selectedVolumeStage]
-        val saved = volumeProfiles.toSortedMap().entries.joinToString("\\n") { (stage, v) ->
+        val saved = volumeProfiles.toSortedMap().entries.joinToString("\n") { (stage, v) ->
             String.format(Locale.getDefault(), "%d/10 단계 · 입력 %.1f dBFS · 추천 저음 %+d / 고음 %+d", stage, v.inputDbfs, v.bassRec, v.trebleRec)
         }
-        volumeProfileResult.text = (if (p == null) "단계 $selectedVolumeStage/10: 아직 측정하지 않았습니다. 차량 볼륨을 이 단계로 직접 맞추고 같은 음악 구간을 측정하세요." else String.format(Locale.getDefault(), "단계 %d/10 저장됨\n스펙트럼 저음 %.1f · 중음 %.1f · 고음 %.1f dB\n시작 추천: 저음 %+d / 중음 0 / 고음 %+d", selectedVolumeStage, p.bassDb, p.midDb, p.trebleDb, p.bassRec, p.trebleRec)) + if (saved.isNotEmpty()) "\\n\\n저장된 단계\\n$saved" else ""
+        volumeProfileResult.text = (if (p == null) "단계 $selectedVolumeStage/10: 아직 측정하지 않았습니다. 차량 볼륨을 이 단계로 직접 맞추고 같은 음악 구간을 측정하세요." else String.format(Locale.getDefault(), "단계 %d/10 저장됨\n스펙트럼 저음 %.1f · 중음 %.1f · 고음 %.1f dB\n시작 추천: 저음 %+d / 중음 0 / 고음 %+d", selectedVolumeStage, p.bassDb, p.midDb, p.trebleDb, p.bassRec, p.trebleRec)) + if (saved.isNotEmpty()) "\n\n저장된 단계\n$saved" else ""
     }
 
     private fun analyzeSpectrum(samples: ShortArray, count: Int, sampleRate: Int): DoubleArray {
