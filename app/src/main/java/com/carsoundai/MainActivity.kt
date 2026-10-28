@@ -444,10 +444,10 @@ class MainActivity : Activity() {
             }
         }
         val result = DoubleArray(11)
-        result[0] = bass / maxOf(1, bassBins) / kotlin.math.ln(250.0 / 20.0)
-        result[1] = mid / maxOf(1, midBins) / kotlin.math.ln(4000.0 / 250.0)
-        result[2] = treble / maxOf(1, trebleBins) / kotlin.math.ln(8000.0 / 4000.0)
-        for (band in 0 until 8) result[band + 3] = sums[band] / maxOf(1, bins[band]) / kotlin.math.ln(edges[band + 1] / edges[band])
+        result[0] = bass / kotlin.math.ln(250.0 / 20.0)
+        result[1] = mid / kotlin.math.ln(4000.0 / 250.0)
+        result[2] = treble / kotlin.math.ln(8000.0 / 4000.0)
+        for (band in 0 until 8) result[band + 3] = sums[band] / kotlin.math.ln(edges[band + 1] / edges[band])
         return result
     }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
