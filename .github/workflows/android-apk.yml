@@ -22,9 +22,6 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Install Android SDK
-        uses: android-actions/setup-android@v3
-
       - name: Extract Android project
         run: |
           mkdir -p /tmp/carsoundai
