@@ -246,19 +246,33 @@ class MainActivity : Activity() {
                 val buffer = ShortArray(1024)
                 var squares = 0.0
                 var count = 0L
+                var bassEnergy = 0.0
+                var midEnergy = 0.0
+                var trebleEnergy = 0.0
+                var spectrumFrames = 0
                 val endAt = System.currentTimeMillis() + 5000
                 while (measuring && System.currentTimeMillis() < endAt) {
                     val n = recorder.read(buffer, 0, buffer.size)
                     if (n > 0) {
                         for (i in 0 until n) { val v = buffer[i].toDouble(); squares += v * v }
                         count += n
+                        if (n == buffer.size) {
+                            val bands = analyzeSpectrum(buffer, n, rate)
+                            bassEnergy += bands[0]; midEnergy += bands[1]; trebleEnergy += bands[2]
+                            spectrumFrames++
+                        }
                     }
                 }
                 val rms = if (count > 0) sqrt(squares / count) else 0.0
                 val dbfs = if (rms > 0) 20.0 * log10(rms / 32768.0) else -100.0
+                val bassDb = 10.0 * log10(maxOf(1e-12, bassEnergy / maxOf(1, spectrumFrames)))
+                val midDb = 10.0 * log10(maxOf(1e-12, midEnergy / maxOf(1, spectrumFrames)))
+                val trebleDb = 10.0 * log10(maxOf(1e-12, trebleEnergy / maxOf(1, spectrumFrames)))
+                val bassRec = ((midDb - bassDb) * 0.25).toInt().coerceIn(-4, 4)
+                val trebleRec = ((midDb - trebleDb) * 0.25).toInt().coerceIn(-4, 4)
                 handler.post {
-                    micResult.text = "측정 완료 · 입력 레벨 " + String.format(Locale.getDefault(), "%.1f dBFS", dbfs) +
-                        "\n상대 비교용 수치이며 보정된 소음계 값은 아닙니다."
+                    micResult.text = String.format(Locale.getDefault(), "분석 완료 · 입력 %.1f dBFS\\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\\n초기 EQ 추천: 저음 %+d, 중음 0, 고음 %+d\\n곡 구성과 마이크 위치의 영향을 받는 참고값입니다.", dbfs, bassDb, midDb, trebleDb, bassRec, trebleRec)
+                    carEqGuide.text = "음악 분석 기반 EQ 시작값\\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\\n중음 / Mid: 기준에서 시작\\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\\n차량 EQ에 적용 후 다시 측정해 비교하세요."
                 }
             } catch (e: Exception) {
                 handler.post { micResult.text = "마이크 측정 실패: " + (e.message ?: "권한 또는 기기 문제") }
@@ -270,6 +284,22 @@ class MainActivity : Activity() {
         }.also { it.start() }
     }
 
+    private fun analyzeSpectrum(samples: ShortArray, count: Int, sampleRate: Int): DoubleArray {
+        val n = 1024
+        val re = DoubleArray(n); val im = DoubleArray(n)
+        for (i in 0 until minOf(n, count)) re[i] = samples[i].toDouble() * (0.5 - 0.5 * kotlin.math.cos(2.0 * PI * i / (n - 1))) / 32768.0
+        var j = 0
+        for (i in 1 until n) { var bit = n shr 1; while ((j and bit) != 0) { j = j xor bit; bit = bit shr 1 }; j = j xor bit; if (i < j) { val t = re[i]; re[i] = re[j]; re[j] = t } }
+        var len = 2
+        while (len <= n) {
+            val angle = -2.0 * PI / len; val c = kotlin.math.cos(angle); val si = kotlin.math.sin(angle); var base = 0
+            while (base < n) { var wr = 1.0; var wi = 0.0; for (k in 0 until len / 2) { val a = base + k; val b = a + len / 2; val tr = wr * re[b] - wi * im[b]; val ti = wr * im[b] + wi * re[b]; re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti; val nw = wr * c - wi * si; wi = wr * si + wi * c; wr = nw }; base += len }
+            len = len shl 1
+        }
+        var bass = 0.0; var mid = 0.0; var treble = 0.0
+        for (bin in 1 until n / 2) { val hz = bin.toDouble() * sampleRate / n; val p = re[bin] * re[bin] + im[bin] * im[bin]; when { hz < 250.0 -> bass += p; hz < 4000.0 -> mid += p; else -> treble += p } }
+        return doubleArrayOf(bass, mid, treble)
+    }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == 41) {
