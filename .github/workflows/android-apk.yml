@@ -25,7 +25,7 @@ jobs:
       - name: Extract Android project
         run: |
           mkdir -p /tmp/carsoundai
-          unzip -q CarSoundAI_APK_Build.zip -d /tmp/carsoundai
+          unzip -q CarSoundAI_APK_Build_fixed -d /tmp/carsoundai
           ROOT="$(find /tmp/carsoundai -name settings.gradle -o -name settings.gradle.kts | head -n 1)"
           if [ -z "$ROOT" ]; then
             echo "Gradle settings file not found in ZIP"
