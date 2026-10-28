@@ -16,6 +16,8 @@ import android.media.AudioTrack
 import android.media.audiofx.Equalizer
 import android.os.Bundle
 import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
 import android.view.View
 import android.widget.Button
@@ -99,13 +101,90 @@ class MainActivity : Activity() {
         scroll.addView(root)
         setContentView(scroll)
 
-        root.addView(label("CarSoundAI", 30f, Color.rgb(20, 43, 75)))
-        root.addView(label("초보자도 따라 하는 차량 사운드 튜닝", 16f))
-        root.addView(label("5단계 사운드 가이드", 20f, Color.rgb(20, 43, 75)))
+        // Hero header: app identity and visual sound-wave motif.
+        val hero = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(18), dp(20), dp(18), dp(20))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(Color.rgb(13, 35, 67), Color.rgb(27, 91, 145))
+            ).apply { cornerRadius = dp(24).toFloat() }
+        }
+        val mark = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(12), dp(10), dp(12))
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(Color.rgb(255, 255, 255))
+            }
+        }
+        listOf(12, 24, 34, 20, 10).forEachIndexed { index, height ->
+            val bar = View(this).apply {
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(3).toFloat()
+                    setColor(if (index == 2) Color.rgb(37, 177, 220) else Color.rgb(35, 100, 168))
+                }
+            }
+            mark.addView(bar, LinearLayout.LayoutParams(dp(4), dp(height)).apply {
+                leftMargin = dp(2); rightMargin = dp(2)
+            })
+        }
+        hero.addView(mark, LinearLayout.LayoutParams(dp(64), dp(64)))
+        val heroText = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), 0, 0, 0)
+        }
+        heroText.addView(TextView(this).apply {
+            text = "CarSoundAI"
+            textSize = 27f
+            typeface = Typeface.create("sans-serif", Typeface.BOLD)
+            setTextColor(Color.WHITE)
+        })
+        heroText.addView(TextView(this).apply {
+            text = "LISTEN  ·  MEASURE  ·  TUNE"
+            textSize = 11f
+            letterSpacing = 0.08f
+            setTextColor(Color.rgb(190, 225, 249))
+            setPadding(0, dp(3), 0, dp(4))
+        })
+        heroText.addView(TextView(this).apply {
+            text = "차량 사운드 측정과 튜닝"
+            textSize = 14f
+            setTextColor(Color.WHITE)
+        })
+        hero.addView(heroText, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        root.addView(hero, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = dp(18)
+        })
+
+        val quickSummary = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        listOf("01  듣기", "02  측정", "03  조정").forEachIndexed { i, title ->
+            val chip = TextView(this).apply {
+                text = title
+                textSize = 12f
+                gravity = Gravity.CENTER
+                setTextColor(if (i == 0) Color.WHITE else Color.rgb(35, 83, 125))
+                setPadding(dp(8), dp(10), dp(8), dp(10))
+                background = GradientDrawable().apply {
+                    cornerRadius = dp(14).toFloat()
+                    setColor(if (i == 0) Color.rgb(25, 103, 168) else Color.rgb(226, 237, 247))
+                }
+            }
+            quickSummary.addView(chip, LinearLayout.LayoutParams(0, dp(40), 1f).apply {
+                leftMargin = dp(3); rightMargin = dp(3)
+            })
+        }
+        root.addView(quickSummary)
+        root.addView(sectionHeader("5단계 사운드 가이드", "처음이라면 순서대로 따라 해 보세요."))
         status = label(steps[0], 17f)
         root.addView(status)
         root.addView(label(guidance[0]))
-        root.addView(label("간편 프리셋", 18f))
+        root.addView(sectionHeader("빠른 프리셋", "원하는 소리 성향을 한 번에 선택"))
         val presets = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         presets.addView(button("저음 강조") { setEq(4, 0, 1) }, LinearLayout.LayoutParams(0, dp(52), 1f))
         presets.addView(button("보컬") { setEq(-1, 3, 0) }, LinearLayout.LayoutParams(0, dp(52), 1f))
@@ -125,13 +204,13 @@ class MainActivity : Activity() {
         root.addView(highValue)
         root.addView(makeSlider { v -> high = v; highValue.text = dbLabel(v); applyEq(); updateCarEqGuide() })
 
-        root.addView(label("차량 EQ에 직접 적용", 18f, Color.rgb(20, 43, 75)))
+        root.addView(sectionHeader("차량 EQ 가이드", "앱의 추천값을 차량 오디오에서 직접 조절"))
         carEqGuide = label("")
         root.addView(carEqGuide)
         root.addView(label("위 추천은 조정 방향과 강도 참고용입니다. 차량 EQ의 밴드 수와 범위가 다르므로 숫자를 그대로 복사하지 말고, 차량 EQ에서 가장 가까운 대역을 비슷한 방향으로 조금씩 조절하세요. 먼저 차량 EQ를 0으로 맞춘 뒤 적용하고, 주행 중에는 조작하지 마세요.", 14f))
         updateCarEqGuide()
 
-        root.addView(label("A/B 설정 비교", 18f, Color.rgb(20, 43, 75)))
+        root.addView(sectionHeader("A/B 비교", "두 설정을 저장하고 귀로 비교하세요"))
         root.addView(button("현재 설정을 A로 저장") {
             savedA = Triple(low, mid, high)
             showingA = true
@@ -145,7 +224,7 @@ class MainActivity : Activity() {
         root.addView(button("A ↔ B 전환") { switchAB() })
         root.addView(label("A와 B를 각각 저장한 뒤 전환하며 비교하세요. 이 비교는 앱의 테스트 톤에 적용됩니다.", 14f))
 
-        root.addView(label("볼륨 단계별 정밀 튜닝", 20f, Color.rgb(20, 43, 75)))
+        root.addView(sectionHeader("볼륨별 측정", "단계별 기록을 저장해 차이를 확인"))
         root.addView(label("차량 오디오 볼륨을 직접 맞춘 뒤 측정용 핑크 노이즈를 재생하고 측정하세요. 앱이 차량 볼륨을 직접 제어하지는 않으며, 단계별 스펙트럼을 따로 저장해 비교합니다.", 14f))
         volumeStageLabel = label("측정할 차량 볼륨 단계: 5 / 10", 17f)
         root.addView(volumeStageLabel)
@@ -168,7 +247,7 @@ class MainActivity : Activity() {
         root.addView(volumeProfileResult)
         root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); saveVolumeProfiles(); showVolumeProfile() })
 
-        root.addView(label("측정 기반 주파수 진단", 18f, Color.rgb(20, 43, 75)))
+        root.addView(sectionHeader("주파수 진단", "8개 대역 분석과 보정 시작값"))
         micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요.")
         root.addView(micResult)
         root.addView(button("선택한 볼륨 단계에서 5초 분석") { startNoiseMeasurement() })
@@ -178,9 +257,37 @@ class MainActivity : Activity() {
         root.addView(button("이전 단계") { step = (step - 1).coerceAtLeast(0); updateStep() })
         root.addView(button("다음 단계") { step = (step + 1).coerceAtMost(4); updateStep() })
         root.addView(button("현재 설정 초기화") { setEq(0, 0, 0) })
-        root.addView(label("안내", 18f, Color.rgb(20, 43, 75)))
+        root.addView(sectionHeader("사용 안내", "정확도와 안전을 위한 참고 사항"))
         root.addView(label("핑크 노이즈는 측정 자극음으로 사용합니다. 이 앱은 자체 테스트 소리와 이 앱에 연결된 이퀄라이저를 조절합니다. Android의 제한으로 다른 음악 앱이나 차량 블루투스에서 재생 중인 모든 음악을 직접 변경하지는 못합니다. 차량 오디오의 EQ는 차량/오디오 시스템에서 조절하세요.", 14f))
         root.addView(label("안전을 위해 주행 중에는 조작하지 마세요.", 14f, Color.rgb(170, 45, 35)))
+    }
+
+    private fun sectionHeader(title: String, subtitle: String): LinearLayout {
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(11), dp(14), dp(11))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(231, 240, 249))
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), Color.rgb(211, 226, 240))
+            }
+            addView(TextView(this@MainActivity).apply {
+                text = title
+                textSize = 18f
+                typeface = Typeface.create("sans-serif", Typeface.BOLD)
+                setTextColor(Color.rgb(19, 57, 93))
+            })
+            addView(TextView(this@MainActivity).apply {
+                text = subtitle
+                textSize = 12f
+                setTextColor(Color.rgb(76, 103, 128))
+                setPadding(0, dp(3), 0, 0)
+            })
+            val params = LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT)
+            params.topMargin = dp(18)
+            params.bottomMargin = dp(7)
+            layoutParams = params
+        }
     }
 
     private fun makeSlider(onChanged: (Int) -> Unit): SeekBar {
