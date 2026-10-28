@@ -36,6 +36,7 @@ class MainActivity : Activity() {
     private lateinit var midValue: TextView
     private lateinit var highValue: TextView
     private lateinit var micResult: TextView
+    private lateinit var spectrumView: LinearLayout
     private lateinit var carEqGuide: TextView
     private lateinit var volumeStageLabel: TextView
     private lateinit var volumeProfileResult: TextView
@@ -239,7 +240,20 @@ class MainActivity : Activity() {
         root.addView(volumeProfileResult)
         root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); saveVolumeProfiles(); showVolumeProfile() })
 
-        root.addView(sectionHeader("주파수 진단", "8개 대역 분석과 보정 시작값"))
+        root.addView(sectionHeader("주파수 진단", "8개 대역을 그래프로 확인하고 보정 시작값을 참고하세요"))
+        spectrumView = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = GradientDrawable().apply {
+                setColor(Color.rgb(8, 24, 42))
+                cornerRadius = dp(16).toFloat()
+                setStroke(dp(1), Color.rgb(34, 88, 133))
+            }
+        }
+        spectrumView.addView(label("측정 후 8개 주파수 대역이 여기에 표시됩니다.", 13f, Color.rgb(157, 190, 218)))
+        root.addView(spectrumView, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = dp(10)
+        })
         micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요. 측정 시간은 20초입니다.")
         root.addView(micResult)
         root.addView(button("선택한 볼륨 단계에서 20초 분석") { startNoiseMeasurement() })
@@ -426,6 +440,7 @@ class MainActivity : Activity() {
                     volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10" + if (volumeProfiles.containsKey(selectedVolumeStage)) " · 측정 저장됨" else " · 미측정"
                     showVolumeProfile()
                     micResult.text = String.format(Locale.getDefault(), "볼륨 단계 %d/10 분석 완료 · 입력 %.1f dBFS\n저음 %.1f · 중음 %.1f · 고음 %.1f dB(상대값)\n8대역(20–60 / 60–125 / 125–250 / 250–500 / 500–1k / 1–2k / 2–4k / 4–8k Hz):\n%s\n규칙 기반 진단: %s\n초기 분석 추천: 저음 %+d, 중음 0, 고음 %+d\n%s", measurementStage, dbfs, bassDb, midDb, trebleDb, bandDb.mapIndexed { i, v -> String.format(Locale.getDefault(), "%s %.1f dB", listOf("20–60", "60–125", "125–250", "250–500", "500–1k", "1–2k", "2–4k", "4–8k")[i], v) }.joinToString("\n"), ruleDiagnosis, bassRec, trebleRec, qualityWarning)
+                    renderSpectrum(bandDb)
                     carEqGuide.text = "스펙트럼 분석 기반 EQ 시작값\n저음 / Bass: " + String.format(Locale.getDefault(), "%+d 단계", bassRec) + "\n중음 / Mid: 기준에서 시작\n고음 / Treble: " + String.format(Locale.getDefault(), "%+d 단계", trebleRec) + "\n차량 EQ에 적용 후 다시 측정해 비교하세요."
                 }
             } catch (e: Exception) {
@@ -436,6 +451,53 @@ class MainActivity : Activity() {
                 measuring = false
             }
         }.also { it.start() }
+    }
+
+    private fun renderSpectrum(values: List<Double>) {
+        if (!::spectrumView.isInitialized) return
+        spectrumView.removeAllViews()
+        spectrumView.addView(label("상대 대역 레벨 · 측정값 기준", 13f, Color.rgb(157, 190, 218)))
+        val names = listOf("20–60", "60–125", "125–250", "250–500", "500–1k", "1–2k", "2–4k", "4–8k")
+        val low = values.minOrNull() ?: 0.0
+        val high = values.maxOrNull() ?: 1.0
+        val range = (high - low).coerceAtLeast(0.1)
+        values.forEachIndexed { index, value ->
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(0, dp(4), 0, dp(4))
+            }
+            row.addView(TextView(this).apply {
+                text = names[index] + " Hz"
+                textSize = 11f
+                setTextColor(Color.rgb(190, 211, 231))
+            }, LinearLayout.LayoutParams(dp(76), LinearLayout.LayoutParams.WRAP_CONTENT))
+            val track = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL
+                background = GradientDrawable().apply {
+                    setColor(Color.rgb(17, 43, 67))
+                    cornerRadius = dp(5).toFloat()
+                }
+                clipToOutline = true
+            }
+            val ratio = ((value - low) / range).coerceIn(0.0, 1.0).toFloat()
+            val visible = (0.12f + ratio * 0.88f).coerceIn(0.12f, 1f)
+            track.addView(View(this).apply {
+                background = GradientDrawable(
+                    GradientDrawable.Orientation.LEFT_RIGHT,
+                    intArrayOf(Color.rgb(0, 119, 255), Color.rgb(0, 190, 238))
+                ).apply { cornerRadius = dp(5).toFloat() }
+            }, LinearLayout.LayoutParams(0, dp(12), visible))
+            track.addView(View(this), LinearLayout.LayoutParams(0, dp(12), 1f - visible))
+            row.addView(track, LinearLayout.LayoutParams(0, dp(12), 1f))
+            row.addView(TextView(this).apply {
+                text = String.format(Locale.getDefault(), "%.1f", value)
+                textSize = 11f
+                setTextColor(Color.WHITE)
+                gravity = Gravity.END
+            }, LinearLayout.LayoutParams(dp(44), LinearLayout.LayoutParams.WRAP_CONTENT))
+            spectrumView.addView(row)
+        }
     }
 
     private fun saveVolumeProfiles() {
