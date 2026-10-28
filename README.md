@@ -30,10 +30,12 @@
 - Initial bass/treble adjustment suggestions based on those relative measurements.
 - Volume-stage labels (1–10) with separate measurement records saved across app restarts.
 - Guidance for manually applying suggested changes in the vehicle's own EQ.
+- Shareable Selectru JSON profile export/import for current EQ, A/B presets, and saved volume-stage measurements; no raw audio recordings are exported.
+- In-app links to public reference data: AutoEq headphone frequency-response profiles, ANIR vehicle impulse-response/noise corpus, and a catalog of room impulse-response datasets.
 
 ## Important limitations
 
-This is an early signal-analysis prototype, not yet a trained AI model or a calibrated room-measurement system. The current measurement is an early pink-noise/ambient capture workflow and is only a rough starting point; it does not yet calculate a calibrated transfer function or average multiple microphone positions. A phone microphone hears music plus cabin reflections, background noise, microphone response, and automatic gain control. The spectrum of a song also reflects its arrangement and mastering, so it cannot by itself prove that the vehicle has a response problem.
+This is an early signal-analysis prototype, not yet a trained AI model or a calibrated room-measurement system. Public datasets linked in the app are reference material, not automatically trained model weights. AutoEq is headphone-focused and should not be treated as a vehicle correction profile. Check the individual dataset license, attribution requirements, permitted use, and download size before redistributing data. Imported user profiles are unverified and should be reviewed before application. The current measurement is an early pink-noise/ambient capture workflow and is only a rough starting point; it does not yet calculate a calibrated transfer function or average multiple microphone positions. A phone microphone hears music plus cabin reflections, background noise, microphone response, and automatic gain control. The spectrum of a song also reflects its arrangement and mastering, so it cannot by itself prove that the vehicle has a response problem.
 
 The volume-stage feature records which car-volume setting was measured; it does not control the vehicle volume itself. The app can generate pink noise and estimate relative band levels, but it does not yet perform a calibrated sweep/transfer-function measurement or automatically apply a generated EQ profile to the vehicle's audio DSP.
 
@@ -46,6 +48,7 @@ Android apps generally cannot directly change the EQ of arbitrary music apps or 
 3. Build the diagnosis/recommendation layer with confidence values and listener goals (neutral, bass-forward, vocal clarity). A real trained model will require representative measurement data and validation; until then, label rule-based decisions honestly.
 4. Add safe, bounded EQ recommendations and a guided before/after remeasurement loop.
 5. Validate across Android devices, car cabins, head units, volume levels, and music genres before calling the results production-ready.
+6. Collect consented, anonymized measurements with device/cabin metadata and quality checks; publish a versioned, license-cleared dataset before training a real model. Do not upload personal recordings or location-linked data by default.
 
 ## Reference workflow
 
