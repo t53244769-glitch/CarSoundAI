@@ -68,7 +68,7 @@ class MainActivity : Activity() {
     private val sampleRate = 44100
 
     private var selectedVolumeStage = 5
-    private var measurementDurationSeconds = 20
+    private var measurementDurationSeconds = 60
     private data class VolumeProfile(val bassDb: Double, val midDb: Double, val trebleDb: Double, val bandDb: List<Double>, val bassRec: Int, val trebleRec: Int, val inputDbfs: Double)
     private val volumeProfiles = mutableMapOf<Int, VolumeProfile>()
 
@@ -125,7 +125,7 @@ class MainActivity : Activity() {
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(18), dp(20), dp(24))
-            setBackgroundColor(Color.rgb(5, 15, 29))
+            background = GradientDrawable(GradientDrawable.Orientation.TL_BR, intArrayOf(Color.rgb(5, 12, 27), Color.rgb(10, 28, 48), Color.rgb(5, 15, 29)))
         }
         scroll.addView(root)
         setContentView(scroll)
@@ -137,7 +137,7 @@ class MainActivity : Activity() {
             setPadding(dp(18), dp(20), dp(18), dp(20))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(Color.rgb(13, 35, 67), Color.rgb(27, 91, 145))
+                intArrayOf(Color.rgb(12, 28, 58), Color.rgb(18, 78, 122), Color.rgb(17, 125, 151))
             ).apply { cornerRadius = dp(24).toFloat() }
         }
         val heroText = LinearLayout(this).apply {
@@ -217,10 +217,10 @@ class MainActivity : Activity() {
         presetPanel.addView(label("프리셋은 저음·중음·고음 3밴드의 시작값입니다. 콘서트홀·라이브 같은 이름은 실제 잔향 효과를 생성하지 않으며, 공간 음향이나 리버브가 아닌 톤 밸런스만 바꿉니다.", 13f))
         root.addView(presetPanel)
 
-        root.addView(sectionHeader("AI 자동 이퀄라이징", "측정값을 분석해 저음·중음·고음을 한 번에 조정"))
-        root.addView(label("현재 버전은 저장된 8대역 측정값과 규칙 기반 분석으로 보수적인 EQ 시작값을 자동 계산합니다. 학습형 AI 모델이나 차량 DSP 직접 제어는 아니며, 적용 후 반드시 청취 비교하세요.", 13f))
-        root.addView(button("✨ 측정값 기반 AI 자동 EQ 적용") { autoAiEqualize(true) })
-        root.addView(button("측정 없이 기본 자동 EQ 적용") { autoAiEqualize(false) })
+        root.addView(sectionHeader("측정 기반 EQ 추천", "측정 결과를 참고해 이퀄라이저 시작값을 제안"))
+        root.addView(label("측정 결과와 사용자가 선택한 소리 성향을 바탕으로 조정 시작값을 제안합니다. 이 기능은 규칙 기반 추천이며, 학습형 AI 모델이나 차량 오디오 직접 제어 기능은 아닙니다.", 13f))
+        root.addView(button("측정값으로 EQ 시작값 추천") { autoAiEqualize(true) })
+        root.addView(button("기본 EQ 시작값 적용") { autoAiEqualize(false) })
 
         root.addView(label("저음 (Bass)", 17f))
         lowValue = label("0 dB")
@@ -261,15 +261,15 @@ class MainActivity : Activity() {
         root.addView(label("A와 B를 각각 저장한 뒤 전환하며 비교하세요. 이 비교는 앱의 테스트 톤에 적용됩니다.", 14f))
 
         root.addView(sectionHeader("볼륨별 측정", "단계별 기록을 저장해 차이를 확인"))
-        root.addView(label("분석 시간", 15f))
+        root.addView(label("분석 시간 · 최소 1분", 15f))
         val durationPicker = android.widget.Spinner(this).apply {
             adapter = android.widget.ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item,
-                listOf("20초 빠른 측정", "3분 기준 측정", "5분 정밀 측정", "20분 장시간 수집"))
+                listOf("1분 기본 측정", "3분 기준 측정", "5분 정밀 측정", "20분 장시간 수집"))
             setSelection(0)
             onItemSelectedListener = object : android.widget.AdapterView.OnItemSelectedListener {
                 override fun onNothingSelected(parent: android.widget.AdapterView<*>?) {}
                 override fun onItemSelected(parent: android.widget.AdapterView<*>?, view: View?, position: Int, id: Long) {
-                    measurementDurationSeconds = listOf(20, 180, 300, 1200).getOrElse(position) { 20 }
+                    measurementDurationSeconds = listOf(60, 180, 300, 1200).getOrElse(position) { 60 }
                 }
             }
         }
@@ -312,7 +312,7 @@ class MainActivity : Activity() {
         root.addView(spectrumView, LinearLayout.LayoutParams(-1, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
             bottomMargin = dp(10)
         })
-        micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요. 측정 시간은 20초입니다.")
+        micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요. 측정 시간은 최소 1분입니다.")
         root.addView(micResult)
         root.addView(button("측정 일시정지 / 이어하기") { if (measuring) { measurementPaused = !measurementPaused; micResult.text = if (measurementPaused) "일시정지됨 · 광고가 끝나면 이어하기를 누르세요." else "측정 재개 · 유효 측정 시간을 이어서 계산합니다." } else startNoiseMeasurement() })
         root.addView(label("핑크 노이즈 입력을 8개 대역으로 분석하고 로그 주파수 폭을 보정한 상대 레벨과 보정 시작값을 표시합니다. 현재 진단은 규칙 기반 프로토타입이며 학습된 AI 모델이나 보정 마이크 측정은 아닙니다.", 14f))
