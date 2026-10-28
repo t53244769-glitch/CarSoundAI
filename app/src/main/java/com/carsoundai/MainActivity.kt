@@ -248,9 +248,9 @@ class MainActivity : Activity() {
         root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); saveVolumeProfiles(); showVolumeProfile() })
 
         root.addView(sectionHeader("주파수 진단", "8개 대역 분석과 보정 시작값"))
-        micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요.")
+        micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요. 측정 시간은 20초입니다.")
         root.addView(micResult)
-        root.addView(button("선택한 볼륨 단계에서 5초 분석") { startNoiseMeasurement() })
+        root.addView(button("선택한 볼륨 단계에서 20초 분석") { startNoiseMeasurement() })
         root.addView(label("핑크 노이즈 입력을 8개 대역으로 분석하고 로그 주파수 폭을 보정한 상대 레벨과 보정 시작값을 표시합니다. 현재 진단은 규칙 기반 프로토타입이며 학습된 AI 모델이나 보정 마이크 측정은 아닙니다.", 14f))
 
         root.addView(button("측정용 핑크 노이즈 재생 / 정지") { toggleTone() })
@@ -373,7 +373,7 @@ class MainActivity : Activity() {
         }
         measuring = true
         val measurementStage = selectedVolumeStage
-        micResult.text = "분석 중… 핑크 노이즈 또는 일정한 측정 소리를 차량 스피커로 재생해 주세요."
+        micResult.text = "20초 측정 중… 핑크 노이즈를 차량 스피커로 재생하고 측정이 끝날 때까지 기다려 주세요."
         micThread = Thread {
             var recorder: AudioRecord? = null
             try {
@@ -390,7 +390,7 @@ class MainActivity : Activity() {
                 var trebleEnergy = 0.0
                 val bandEnergy = DoubleArray(8)
                 var spectrumFrames = 0
-                val endAt = System.currentTimeMillis() + 5000
+                val endAt = System.currentTimeMillis() + 20000
                 while (measuring && System.currentTimeMillis() < endAt) {
                     val n = recorder.read(buffer, 0, buffer.size)
                     if (n > 0) {
