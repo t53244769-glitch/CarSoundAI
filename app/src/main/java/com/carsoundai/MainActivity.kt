@@ -145,7 +145,7 @@ class MainActivity : Activity() {
         root.addView(label("A와 B를 각각 저장한 뒤 전환하며 비교하세요. 이 비교는 앱의 테스트 톤에 적용됩니다.", 14f))
 
         root.addView(label("볼륨 단계별 정밀 튜닝", 20f, Color.rgb(20, 43, 75)))
-        root.addView(label("차량 오디오의 실제 볼륨을 직접 바꾸고, 각 단계에서 같은 음악 구간을 측정하세요. 앱이 차량 볼륨을 직접 제어하는 기능은 아니며, 단계별 측정값을 따로 저장해 비교합니다.", 14f))
+        root.addView(label("차량 오디오 볼륨을 직접 맞춘 뒤 측정용 핑크 노이즈를 재생하고 측정하세요. 앱이 차량 볼륨을 직접 제어하지는 않으며, 단계별 스펙트럼을 따로 저장해 비교합니다.", 14f))
         volumeStageLabel = label("측정할 차량 볼륨 단계: 5 / 10", 17f)
         root.addView(volumeStageLabel)
         val volumeStageSlider = SeekBar(this).apply {
@@ -168,7 +168,7 @@ class MainActivity : Activity() {
         root.addView(button("볼륨별 측정 기록 초기화") { volumeProfiles.clear(); showVolumeProfile() })
 
         root.addView(label("8대역 주파수 분석", 18f, Color.rgb(20, 43, 75)))
-        micResult = label("분석 전 · 안전하게 주차하고 차량 스피커로 음악을 재생하세요.")
+        micResult = label("분석 전 · 안전하게 주차한 뒤 측정용 핑크 노이즈를 차량 스피커로 재생하세요.")
         root.addView(micResult)
         root.addView(button("선택한 볼륨 단계에서 5초 분석") { startNoiseMeasurement() })
         root.addView(label("마이크 입력을 8개 주파수 대역으로 나눠 분석하고, 대역별 상대 레벨과 보정 시작값을 표시합니다. 같은 음악 구간·같은 마이크 위치로 비교하세요. 이 측정은 보정 마이크를 사용한 음압 보정이나 학습된 AI 모델이 아닌 참고용 분석입니다.", 14f))
@@ -265,7 +265,7 @@ class MainActivity : Activity() {
         }
         measuring = true
         val measurementStage = selectedVolumeStage
-        micResult.text = "분석 중… 차량 스피커에서 음악을 평소 음량으로 재생하며 기다려 주세요."
+        micResult.text = "분석 중… 핑크 노이즈 또는 일정한 측정 소리를 차량 스피커로 재생해 주세요."
         micThread = Thread {
             var recorder: AudioRecord? = null
             try {
@@ -307,7 +307,7 @@ class MainActivity : Activity() {
                 val profile = VolumeProfile(bassDb, midDb, trebleDb, bandDb, bassRec, trebleRec, dbfs)
                 val clipRatio = if (count > 0) clippedSamples.toDouble() / count else 0.0
                 val qualityWarning = when {
-                    rms < 80.0 -> "입력 신호가 너무 작습니다. 음악 음량을 조금 높이고 다시 측정하세요."
+                    rms < 80.0 -> "입력 신호가 너무 작습니다. 측정 소리와 입력 음량을 확인한 뒤 다시 측정하세요."
                     clipRatio > 0.005 -> "입력 왜곡 가능성이 있습니다. 음량을 낮추고 다시 측정하세요."
                     else -> "측정 레벨은 확인됐습니다. 곡 구성과 마이크 위치에 영향을 받는 참고값입니다."
                 }
@@ -334,7 +334,7 @@ class MainActivity : Activity() {
         val saved = volumeProfiles.toSortedMap().entries.joinToString("\n") { (stage, v) ->
             String.format(Locale.getDefault(), "%d/10 단계 · 입력 %.1f dBFS · 추천 저음 %+d / 고음 %+d", stage, v.inputDbfs, v.bassRec, v.trebleRec)
         }
-        volumeProfileResult.text = (if (p == null) "단계 $selectedVolumeStage/10: 아직 측정하지 않았습니다. 차량 볼륨을 이 단계로 직접 맞추고 같은 음악 구간을 측정하세요." else String.format(Locale.getDefault(), "단계 %d/10 저장됨\n스펙트럼 저음 %.1f · 중음 %.1f · 고음 %.1f dB\n시작 추천: 저음 %+d / 중음 0 / 고음 %+d", selectedVolumeStage, p.bassDb, p.midDb, p.trebleDb, p.bassRec, p.trebleRec)) + if (saved.isNotEmpty()) "\n\n저장된 단계\n$saved" else ""
+        volumeProfileResult.text = (if (p == null) "단계 $selectedVolumeStage/10: 아직 측정하지 않았습니다. 차량 볼륨을 이 단계로 직접 맞추고 같은 음악 구간을 측정하세요." else String.format(Locale.getDefault(), "단계 %d/10 저장됨\n스펙트럼 저음 %.1f · 중음 %.1f · 고음 %.1f dB\n8대역: %s\n시작 추천: 저음 %+d / 중음 0 / 고음 %+d", selectedVolumeStage, p.bassDb, p.midDb, p.trebleDb, p.bandDb.mapIndexed { i, v -> String.format(Locale.getDefault(), "%s %.1f", listOf("20–60", "60–125", "125–250", "250–500", "500–1k", "1–2k", "2–4k", "4–8k")[i], v) }.joinToString(" · "), p.bassRec, p.trebleRec)) + if (saved.isNotEmpty()) "\n\n저장된 단계\n$saved" else ""
     }
 
     private fun analyzeSpectrum(samples: ShortArray, count: Int, sampleRate: Int): DoubleArray {
