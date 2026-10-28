@@ -299,15 +299,12 @@ class MainActivity : Activity() {
                 }
                 val rms = if (count > 0) sqrt(squares / count) else 0.0
                 val dbfs = if (rms > 0) 20.0 * log10(rms / 32768.0) else -100.0
-                val bassDb = 10.0 * log10(maxOf(1e-12, bassEnergy / maxOf(1, spectrumFrames) / kotlin.math.ln(250.0 / 20.0)))
-                val midDb = 10.0 * log10(maxOf(1e-12, midEnergy / maxOf(1, spectrumFrames) / kotlin.math.ln(4000.0 / 250.0)))
-                val trebleDb = 10.0 * log10(maxOf(1e-12, trebleEnergy / maxOf(1, spectrumFrames) / kotlin.math.ln(8000.0 / 4000.0)))
+                val bassDb = 10.0 * log10(maxOf(1e-12, bassEnergy / maxOf(1, spectrumFrames)))
+                val midDb = 10.0 * log10(maxOf(1e-12, midEnergy / maxOf(1, spectrumFrames)))
+                val trebleDb = 10.0 * log10(maxOf(1e-12, trebleEnergy / maxOf(1, spectrumFrames)))
                 val bassRec = ((midDb - bassDb) * 0.25).toInt().coerceIn(-4, 4)
                 val trebleRec = ((midDb - trebleDb) * 0.25).toInt().coerceIn(-4, 4)
-                val bandEdges = doubleArrayOf(20.0, 60.0, 125.0, 250.0, 500.0, 1000.0, 2000.0, 4000.0, 8000.0)
-                val bandDb = bandEnergy.mapIndexed { index, energy ->
-                    10.0 * log10(maxOf(1e-12, energy / maxOf(1, spectrumFrames) / kotlin.math.ln(bandEdges[index + 1] / bandEdges[index])))
-                }
+                val bandDb = bandEnergy.map { energy -> 10.0 * log10(maxOf(1e-12, energy / maxOf(1, spectrumFrames))) }
                 val profile = VolumeProfile(bassDb, midDb, trebleDb, bandDb, bassRec, trebleRec, dbfs)
                 val clipRatio = if (count > 0) clippedSamples.toDouble() / count else 0.0
                 val qualityWarning = when {
