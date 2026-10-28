@@ -55,9 +55,9 @@ class MainActivity : Activity() {
     private var micThread: Thread? = null
     private var measurementUiTicker: Runnable? = null
     private val handler = Handler(Looper.getMainLooper())
-    private var low = 0
-    private var mid = 0
-    private var high = 0
+    @Volatile private var low = 0
+    @Volatile private var mid = 0
+    @Volatile private var high = 0
     private var savedA: Triple<Int, Int, Int>? = null
     private var savedB: Triple<Int, Int, Int>? = null
     private var showingA = false
@@ -242,7 +242,7 @@ class MainActivity : Activity() {
         eqActions.addView(button("테스트 소리 재생") { toggleTone() }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { rightMargin = dp(5) })
         eqActions.addView(button("초기화") { setEq(0, 0, 0) }, LinearLayout.LayoutParams(0, dp(48), 1f).apply { leftMargin = dp(5) })
         root.addView(eqActions)
-        root.addView(label("이 EQ는 앱 내부 테스트 소리에 적용됩니다. 차량이나 YouTube 등 다른 앱의 소리를 직접 변경하지는 않습니다.", 12f, Color.rgb(157, 190, 218)))
+        root.addView(label("이 EQ는 앱 내부 테스트 소리에 실시간 DSP 필터로 적용됩니다. 슬라이더를 움직이면 테스트 소리가 즉시 바뀝니다. 차량 순정 오디오 및 YouTube 등 다른 앱의 소리를 직접 변경하지는 않습니다.", 12f, Color.rgb(157, 190, 218)))
 
         root.addView(sectionHeader("차량 EQ 가이드", "앱의 추천값을 차량 오디오에서 직접 조절"))
         carEqGuide = label("")
@@ -986,7 +986,7 @@ class MainActivity : Activity() {
     }
 
     private fun toggleTone() {
-        if (playing) { stopTone(); return }
+        if (playing) { stopTone(); if (::status.isInitialized) status.text = "테스트 소리 정지"; return }
         try {
             val minBuffer = AudioTrack.getMinBufferSize(sampleRate, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT)
             audioTrack = AudioTrack.Builder()
@@ -995,15 +995,25 @@ class MainActivity : Activity() {
                 .setBufferSizeInBytes(maxOf(minBuffer, sampleRate / 2))
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
-            equalizer = Equalizer(0, audioTrack!!.audioSessionId).apply { enabled = true }
-            applyEq()
+            // Use app-owned DSP rather than Android's optional Equalizer effect, which is
+            // absent or inconsistent on some devices. This guarantees that the generated
+            // test signal itself is filtered before it is sent to AudioTrack.
+            equalizer = null
             playing = true
             audioTrack!!.play()
+            if (::status.isInitialized) status.text = "테스트 소리 재생 중 · EQ 실시간 DSP 적용"
             toneThread = Thread {
                 val buffer = ShortArray(1024)
                 var b0 = 0.0; var b1 = 0.0; var b2 = 0.0; var b3 = 0.0; var b4 = 0.0; var b5 = 0.0
+                var lowPass250 = 0.0
+                var lowPass3000 = 0.0
+                val alpha250 = 1.0 - kotlin.math.exp(-2.0 * PI * 250.0 / sampleRate)
+                val alpha3000 = 1.0 - kotlin.math.exp(-2.0 * PI * 3000.0 / sampleRate)
                 val random = java.util.Random()
                 while (playing && !Thread.currentThread().isInterrupted) {
+                    val bassGain = Math.pow(10.0, low * 0.75 / 20.0)
+                    val midGain = Math.pow(10.0, mid * 0.75 / 20.0)
+                    val trebleGain = Math.pow(10.0, high * 0.75 / 20.0)
                     for (i in buffer.indices) {
                         val white = random.nextDouble() * 2.0 - 1.0
                         b0 = 0.99886 * b0 + white * 0.0555179
@@ -1014,7 +1024,14 @@ class MainActivity : Activity() {
                         b5 = -0.7616 * b5 - white * 0.0168980
                         val pink = b0 + b1 + b2 + b3 + b4 + b5 + white * 0.5362
                         b5 = white * 0.115926
-                        buffer[i] = (pink * 700.0).toInt().coerceIn(-12000, 12000).toShort()
+                        val input = pink * 700.0
+                        lowPass250 += alpha250 * (input - lowPass250)
+                        lowPass3000 += alpha3000 * (input - lowPass3000)
+                        val bassPart = lowPass250
+                        val midPart = lowPass3000 - lowPass250
+                        val treblePart = input - lowPass3000
+                        val filtered = bassPart * bassGain + midPart * midGain + treblePart * trebleGain
+                        buffer[i] = filtered.toInt().coerceIn(-28000, 28000).toShort()
                     }
                     audioTrack?.write(buffer, 0, buffer.size)
                 }
@@ -1025,23 +1042,10 @@ class MainActivity : Activity() {
         }
     }
 
+    // EQ is performed directly on the app's generated PCM test signal in toggleTone().
+    // Do not depend on the optional platform Equalizer effect, which varies by device.
     private fun applyEq() {
-        val eq = equalizer ?: return
-        try {
-            if (eq.numberOfBands < 1) return
-            val min = eq.bandLevelRange[0].toInt()
-            val max = eq.bandLevelRange[1].toInt()
-            for (i in 0 until eq.numberOfBands) {
-                val hz = eq.getCenterFreq(i.toShort()) / 1000
-                val stage = when {
-                    hz < 250 -> low
-                    hz < 3000 -> mid
-                    else -> high
-                }
-                val level = (stage * 100).coerceIn(min, max).toShort()
-                eq.setBandLevel(i.toShort(), level)
-            }
-        } catch (_: Exception) {}
+        // The DSP loop reads the current low/mid/high values continuously, so changes are live.
     }
 
     private fun stopTone() {
