@@ -17,6 +17,8 @@
 - Selectru brand name and dark navy/blue interface styling. The supplied original brand image has not yet been retrieved from its MYBOX short link, so the original icon must not be considered applied yet.
 
 - Five-step beginner tuning guide and simple presets with dynamic step-by-step guidance.
+- Expandable, in-app Korean manual covering setup, measurement, EQ presets, A/B comparison, reading results, limitations and safety.
+- Expandable sound-style preset list: balanced, bass boost, vocal, concert hall-style tone, live, club, car, studio, cinema, acoustic, podcast and night bass. These presets adjust only the three-band EQ; they do not synthesize reverb or venue acoustics.
 - Bass, midrange and treble controls for the app's own test-signal playback; current EQ values persist across launches.
 - Saved A/B profiles persist across launches and can be explicitly cleared.
 - Live 20-second measurement countdown and cancellation control.
