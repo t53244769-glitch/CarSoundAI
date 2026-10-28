@@ -154,7 +154,7 @@ class MainActivity : Activity() {
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
                     selectedVolumeStage = progress + 1
-                    volumeStageLabel.text = "측정한 차량 볼륨 단계: $measurementStage / 10" + if (volumeProfiles.containsKey(measurementStage)) " · 측정 저장됨" else " · 미측정"
+                    volumeStageLabel.text = "측정할 차량 볼륨 단계: $selectedVolumeStage / 10" + if (volumeProfiles.containsKey(selectedVolumeStage)) " · 측정 저장됨" else " · 미측정"
                     showVolumeProfile()
                 }
                 override fun onStartTrackingTouch(seekBar: SeekBar?) {}
