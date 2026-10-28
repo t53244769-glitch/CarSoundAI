@@ -78,6 +78,7 @@ class MainActivity : Activity() {
         loadVolumeProfiles()
         loadEqSettings()
         buildUi()
+        setEq(low, mid, high)
         updateABLabels()
     }
 
