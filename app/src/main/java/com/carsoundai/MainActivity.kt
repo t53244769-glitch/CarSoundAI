@@ -319,7 +319,7 @@ class MainActivity : Activity() {
                 val qualityWarning = when {
                     rms < 80.0 -> "입력 신호가 너무 작습니다. 측정 소리와 입력 음량을 확인한 뒤 다시 측정하세요."
                     clipRatio > 0.005 -> "입력 왜곡 가능성이 있습니다. 음량을 낮추고 다시 측정하세요."
-                    else -> "측정 레벨은 확인됐습니다. 곡 구성과 마이크 위치에 영향을 받는 참고값입니다."
+                    else -> "측정 레벨은 확인됐습니다. 스피커 경로, 실내 반사음, 마이크 위치에 영향을 받는 참고값입니다."
                 }
                 handler.post {
                     volumeProfiles[measurementStage] = profile
