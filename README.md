@@ -41,6 +41,23 @@ The volume-stage feature records which car-volume setting was measured; it does 
 
 Android apps generally cannot directly change the EQ of arbitrary music apps or a vehicle's Bluetooth audio stream. In the current design, users apply recommendations in the car stereo's own EQ.
 
+## Vehicle-baseline and cross-vehicle adaptation plan
+
+The first reference vehicle is the Hyundai IONIQ 5, but its profile must be treated as a **versioned baseline, not a universal EQ preset**. Different model years, factory audio packages, speaker layouts, DSP/amp settings, tires/cabin noise, microphone devices, and measurement positions can change the result.
+
+Recommended data flow:
+
+1. Capture a repeatable IONIQ 5 baseline with vehicle year/trim, audio package, speaker layout, DSP/amp settings, phone/microphone model, calibration status, test signal, volume stage, seat/microphone position, cabin conditions, timestamp, and app/algorithm version.
+2. Store immutable raw measurement summaries separately from derived analysis and generated EQ profiles. Record quality flags and confidence; do not silently overwrite a source measurement.
+3. Generate a conservative baseline profile with its target curve, measured response, suggested EQ, and the exact assumptions/limitations that produced it.
+4. For another vehicle, collect a short calibration/validation session and match its vehicle/audio configuration to the closest known baseline. Transfer only the *shape/strategy* of the reference profile, then calculate small vehicle-specific deltas from the new measurement; never blindly copy IONIQ 5 EQ values.
+5. Run before/after verification and keep a change only when the measurement quality is adequate and the listener prefers the result. Keep the original profile and each revision for A/B comparison and rollback.
+6. Export versioned JSON packages. The planned collection folder may be organized as `수집데이터/IONIQ5/{vehicle_info.json,raw_measurements/,analysis_results/,generated_profiles/,validation/}`. This is a proposed folder schema; automatic Naver MYBOX folder creation/sync is not implemented until an authenticated integration is added.
+
+Long-duration sessions (for example, 20–60 minutes) can be useful for collecting repeated frames and observing changes/noise, but duration alone does not make a measurement accurate. Prefer known test signals for response estimation, split arbitrary-music listening analysis from acoustic calibration, track noise/clipping and stability, and average only valid frames. Keep the phone stationary for repeatability, and support multiple positions only as a separately labelled spatial-averaging mode. Use an external calibrated measurement microphone where practical; phone microphone response and automatic gain control limit absolute accuracy.
+
+Dataset governance: collect only with explicit consent, minimize or omit raw audio by default, avoid storing precise location or identifying cabin recordings, document provenance and licenses, and keep training/evaluation vehicles separated to avoid misleading validation results.
+
 ## Roadmap
 
 1. Upgrade the current pink-noise capture to repeatable multi-frame measurement with background-noise estimation, stability checks, and spatial averaging.
