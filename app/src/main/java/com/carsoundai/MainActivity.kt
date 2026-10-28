@@ -43,6 +43,7 @@ class MainActivity : Activity() {
     private lateinit var guideText: TextView
     @Volatile private var measuring = false
     private var micThread: Thread? = null
+    private var measurementUiTicker: Runnable? = null
     private val handler = Handler(Looper.getMainLooper())
     private var low = 0
     private var mid = 0
@@ -429,6 +430,17 @@ class MainActivity : Activity() {
         measuring = true
         val measurementStage = selectedVolumeStage
         micResult.text = "20초 측정 중… 핑크 노이즈를 차량 스피커로 재생하고 측정이 끝날 때까지 기다려 주세요."
+        val measurementStartedAt = System.currentTimeMillis()
+        val ticker = object : Runnable {
+            override fun run() {
+                if (!measuring || !::micResult.isInitialized) return
+                val remaining = (20 - ((System.currentTimeMillis() - measurementStartedAt) / 1000).toInt()).coerceAtLeast(0)
+                micResult.text = "측정 중 · 남은 시간 ${remaining}초\\n차량은 안전하게 주차하고 측정음을 일정하게 유지하세요."
+                if (remaining > 0) handler.postDelayed(this, 500)
+            }
+        }
+        measurementUiTicker = ticker
+        handler.post(ticker)
         micThread = Thread {
             var recorder: AudioRecord? = null
             try {
@@ -497,7 +509,11 @@ class MainActivity : Activity() {
             } finally {
                 try { recorder?.stop() } catch (_: Exception) {}
                 try { recorder?.release() } catch (_: Exception) {}
-                measuring = false
+                handler.post {
+                    measurementUiTicker?.let { handler.removeCallbacks(it) }
+                    measurementUiTicker = null
+                    measuring = false
+                }
             }
         }.also { it.start() }
     }
