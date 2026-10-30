@@ -1,4 +1,4 @@
-name: AUTO SKIP S22 Ultra APK Build
+name: AUTO SKIP S22 Ultra Signed APK Build
 
 on:
   workflow_dispatch:
@@ -15,9 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
       - name: Set up Java 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
@@ -36,51 +36,88 @@ jobs:
           cat AUTO_SKIP_S22_ULTRA/source.part-* > /tmp/autoskip-source.tar.gz.b64
           base64 -d /tmp/autoskip-source.tar.gz.b64 > /tmp/autoskip-source.tar.gz
           tar -xzf /tmp/autoskip-source.tar.gz -C AUTO_SKIP_S22_ULTRA
-      - name: Align Java and Kotlin JVM targets
+      - name: Configure fixed release signing
+        env:
+          KEYSTORE_B64: ${{ secrets.AUTO_SKIP_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.AUTO_SKIP_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.AUTO_SKIP_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AUTO_SKIP_KEY_ALIAS }}
         run: |
+          test -n "$KEYSTORE_B64" || (echo "Missing AUTO_SKIP_KEYSTORE_BASE64 repository secret" && exit 1)
+          test -n "$STORE_PASSWORD" || (echo "Missing AUTO_SKIP_STORE_PASSWORD repository secret" && exit 1)
+          test -n "$KEY_PASSWORD" || (echo "Missing AUTO_SKIP_KEY_PASSWORD repository secret" && exit 1)
+          test -n "$KEY_ALIAS" || (echo "Missing AUTO_SKIP_KEY_ALIAS repository secret" && exit 1)
+          mkdir -p "$RUNNER_TEMP/autoskip-signing"
+          echo "$KEYSTORE_B64" | base64 --decode > "$RUNNER_TEMP/autoskip-signing/release.jks"
           python3 - <<'PY'
           from pathlib import Path
           p = Path('AUTO_SKIP_S22_ULTRA/app/build.gradle.kts')
           s = p.read_text()
-          needle = '    targetSdk = 35\n'
-          addition = '''    targetSdk = 35
-          compileOptions {
-              sourceCompatibility = JavaVersion.VERSION_17
-              targetCompatibility = JavaVersion.VERSION_17
-          }
-          kotlinOptions {
-              jvmTarget = "17"
-          }
+          s = s.replace('    defaultConfig {', '''
+              signingConfigs {
+                  create("release") {
+                      storeFile = file(System.getenv("KEYSTORE_FILE"))
+                      storePassword = System.getenv("STORE_PASSWORD")
+                      keyAlias = System.getenv("KEY_ALIAS")
+                      keyPassword = System.getenv("KEY_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  getByName("release") {
+                      signingConfig = signingConfigs.getByName("release")
+                      isMinifyEnabled = false
+                  }
+              }
+              defaultConfig {''', 1)
+          needle = '        targetSdk = 35\\n'
+          addition = '''        targetSdk = 35
+                  compileOptions {
+                      sourceCompatibility = JavaVersion.VERSION_17
+                      targetCompatibility = JavaVersion.VERSION_17
+                  }
+                  kotlinOptions {
+                      jvmTarget = "17"
+                  }
           '''
           if 'sourceCompatibility = JavaVersion.VERSION_17' not in s:
               if needle not in s:
                   raise SystemExit('Could not locate targetSdk in app/build.gradle.kts')
               s = s.replace(needle, addition, 1)
-              p.write_text(s)
+          p.write_text(s)
           PY
-      - name: Build APK
-        run: gradle --no-daemon :app:assembleDebug
+        shell: bash
+      - name: Build signed release APK
+        env:
+          KEYSTORE_FILE: ${{ runner.temp }}/autoskip-signing/release.jks
+          STORE_PASSWORD: ${{ secrets.AUTO_SKIP_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.AUTO_SKIP_KEY_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.AUTO_SKIP_KEY_ALIAS }}
+        run: gradle --no-daemon :app:assembleRelease
         working-directory: AUTO_SKIP_S22_ULTRA
+      - name: Verify APK signature
+        run: |
+          APK=AUTO_SKIP_S22_ULTRA/app/build/outputs/apk/release/app-release.apk
+          test -s "$APK"
+          jarsigner -verify -verbose -certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
       - name: Package install ZIP
         run: |
-          test -s AUTO_SKIP_S22_ULTRA/app/build/outputs/apk/debug/app-debug.apk
+          APK=AUTO_SKIP_S22_ULTRA/app/build/outputs/apk/release/app-release.apk
           mkdir -p dist/AUTO_SKIP_S22_ULTRA
-          cp AUTO_SKIP_S22_ULTRA/app/build/outputs/apk/debug/app-debug.apk dist/AUTO_SKIP_S22_ULTRA/AUTO_SKIP_S22_ULTRA.apk
+          cp "$APK" dist/AUTO_SKIP_S22_ULTRA/AUTO_SKIP_S22_ULTRA.apk
           cat > dist/AUTO_SKIP_S22_ULTRA/설치방법.txt <<'GUIDE'
-          AUTO SKIP - Galaxy S22 Ultra
+          AUTO SKIP - Galaxy S22 Ultra (Release signed)
           1. ZIP 압축을 풉니다.
           2. AUTO_SKIP_S22_ULTRA.apk를 눌러 설치합니다.
-          3. 설치 차단 시 이 출처의 앱 설치를 허용합니다.
-          4. 앱 안내에 따라 접근성 서비스를 켭니다.
-          5. OCR 사용 시 화면 캡처 권한을 승인합니다.
-          6. 갤럭시 모드 및 루틴에서 충전 연결 조건에 AUTO SKIP 실행을 지정합니다.
+          3. 삼성 보안 안내가 표시되면 안내 내용을 확인하세요. 릴리스 서명만으로 스토어 인증이 되는 것은 아닙니다.
+          4. 앱 안내에 따라 접근성 및 화면 캡처 권한을 승인합니다.
           GUIDE
           cd dist
           zip -qr ../AUTO_SKIP_INSTALL.zip AUTO_SKIP_S22_ULTRA
       - name: Upload install ZIP
         uses: actions/upload-artifact@v4
         with:
-          name: AUTO_SKIP_S22_ULTRA_INSTALL_ZIP
+          name: AUTO_SKIP_S22_ULTRA_SIGNED_INSTALL_ZIP
           path: AUTO_SKIP_INSTALL.zip
           if-no-files-found: error
           retention-days: 30
