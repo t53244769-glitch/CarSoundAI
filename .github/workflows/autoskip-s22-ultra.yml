@@ -36,6 +36,28 @@ jobs:
           cat AUTO_SKIP_S22_ULTRA/source.part-* > /tmp/autoskip-source.tar.gz.b64
           base64 -d /tmp/autoskip-source.tar.gz.b64 > /tmp/autoskip-source.tar.gz
           tar -xzf /tmp/autoskip-source.tar.gz -C AUTO_SKIP_S22_ULTRA
+      - name: Align Java and Kotlin JVM targets
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('AUTO_SKIP_S22_ULTRA/app/build.gradle.kts')
+          s = p.read_text()
+          needle = '    targetSdk = 35\n'
+          addition = '''    targetSdk = 35
+          compileOptions {
+              sourceCompatibility = JavaVersion.VERSION_17
+              targetCompatibility = JavaVersion.VERSION_17
+          }
+          kotlinOptions {
+              jvmTarget = "17"
+          }
+          '''
+          if 'sourceCompatibility = JavaVersion.VERSION_17' not in s:
+              if needle not in s:
+                  raise SystemExit('Could not locate targetSdk in app/build.gradle.kts')
+              s = s.replace(needle, addition, 1)
+              p.write_text(s)
+          PY
       - name: Build APK
         run: gradle --no-daemon :app:assembleDebug
         working-directory: AUTO_SKIP_S22_ULTRA
