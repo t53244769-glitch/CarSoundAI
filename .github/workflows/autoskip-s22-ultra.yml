@@ -69,19 +69,19 @@ jobs:
                   }
               }
               defaultConfig {''', 1)
-          needle = '        targetSdk = 35\\n'
-          addition = '''        targetSdk = 35
-                  compileOptions {
-                      sourceCompatibility = JavaVersion.VERSION_17
-                      targetCompatibility = JavaVersion.VERSION_17
-                  }
-                  kotlinOptions {
-                      jvmTarget = "17"
-                  }
+          needle = '    compileSdk = 35\\n'
+          addition = '''    compileSdk = 35
+              compileOptions {
+                  sourceCompatibility = JavaVersion.VERSION_17
+                  targetCompatibility = JavaVersion.VERSION_17
+              }
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
           '''
           if 'sourceCompatibility = JavaVersion.VERSION_17' not in s:
               if needle not in s:
-                  raise SystemExit('Could not locate targetSdk in app/build.gradle.kts')
+                  raise SystemExit('Could not locate compileSdk in app/build.gradle.kts')
               s = s.replace(needle, addition, 1)
           p.write_text(s)
           PY
