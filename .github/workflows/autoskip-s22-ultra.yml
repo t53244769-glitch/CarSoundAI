@@ -69,7 +69,7 @@ jobs:
                   }
               }
               defaultConfig {''', 1)
-          needle = '    compileSdk = 35\\n'
+          needle = '    compileSdk = 35\n'
           addition = '''    compileSdk = 35
               compileOptions {
                   sourceCompatibility = JavaVersion.VERSION_17
